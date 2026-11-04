@@ -360,30 +360,36 @@ export async function LeaderDashboard({ me, unitName, feed: feedParam }: { me: P
             {health.length === 0 ? (
               <p className="border-t border-slate-100 px-5 py-6 text-sm text-slate-500">No units yet.</p>
             ) : (
-              <table className="w-full border-t border-slate-100 text-sm">
+              <table className="w-full table-fixed border-t border-slate-100 text-sm">
+                <colgroup>
+                  <col />
+                  <col className="w-16" />
+                  <col className="w-16" />
+                  <col className="w-[4.5rem]" />
+                </colgroup>
                 <thead className="text-xs text-slate-500">
                   <tr>
-                    <th scope="col" className="px-4 py-2 text-left font-medium sm:px-5">Unit</th>
+                    <th scope="col" className="py-2 pl-5 pr-2 text-left font-medium">Unit</th>
                     <th scope="col" className="px-2 py-2 text-right font-medium">Pending</th>
                     <th scope="col" className="px-2 py-2 text-right font-medium">Overdue</th>
-                    <th scope="col" className="px-4 py-2 text-right font-medium whitespace-nowrap sm:px-5">On time</th>
+                    <th scope="col" className="py-2 pl-2 pr-5 text-right font-medium whitespace-nowrap">On time</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {health.map((h) => (
                     <tr key={h.u.id}>
-                      <td className="px-4 py-2.5 sm:px-5">
-                        <Link href={`/team?unit=${h.u.id}`} className="flex items-center gap-2 font-medium text-slate-900 hover:underline">
+                      <td className="py-2.5 pl-5 pr-2">
+                        <Link href={`/team?unit=${h.u.id}`} title={h.u.name} className="flex min-w-0 items-start gap-2 font-medium leading-snug text-slate-900 hover:underline">
                           <span
                             aria-label={h.state === "red" ? "Needs attention" : h.state === "amber" ? "Watch" : "On track"}
-                            className={`size-2.5 shrink-0 rounded-full ${h.state === "red" ? "bg-red-500" : h.state === "amber" ? "bg-amber-500" : "bg-emerald-500"}`}
+                            className={`mt-1.5 size-2.5 shrink-0 rounded-full ${h.state === "red" ? "bg-red-500" : h.state === "amber" ? "bg-amber-500" : "bg-emerald-500"}`}
                           />
-                          <span className="truncate">{h.u.name}</span>
+                          <span className="min-w-0 break-words">{h.u.name}</span>
                         </Link>
                       </td>
                       <td className="px-2 py-2.5 text-right tabular-nums">{h.pending}</td>
                       <td className={`px-2 py-2.5 text-right tabular-nums ${h.overdue ? "font-semibold text-red-700" : "text-slate-400"}`}>{h.overdue}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-slate-600 sm:px-5">{h.ontime === null ? "—" : `${h.ontime}%`}</td>
+                      <td className="py-2.5 pl-2 pr-5 text-right tabular-nums text-slate-600">{h.ontime === null ? "—" : `${h.ontime}%`}</td>
                     </tr>
                   ))}
                 </tbody>
