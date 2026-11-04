@@ -6,6 +6,16 @@ const PUBLIC_PATHS = ["/login", "/auth"];
 // Lightweight: refreshes the Supabase session cookie and gates protected routes.
 // Authorization itself is enforced by Postgres RLS, not here.
 export async function middleware(request: NextRequest) {
+  // Supabase falls back to the Site URL root when the redirect isn't allow-listed.
+  // Forward a sign-in code that lands anywhere else to the callback that can use it.
+  const code = request.nextUrl.searchParams.get("code");
+  if (code && !request.nextUrl.pathname.startsWith("/auth/callback")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/callback";
+    url.search = `?code=${encodeURIComponent(code)}`;
+    return NextResponse.redirect(url);
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
