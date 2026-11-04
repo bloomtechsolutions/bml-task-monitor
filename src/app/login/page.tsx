@@ -1,4 +1,6 @@
+import { redirect } from "next/navigation";
 import { LayoutGrid } from "lucide-react";
+import { getPerson } from "@/lib/auth";
 import { login } from "@/app/auth-actions";
 import { SubmitButton } from "@/components/submit-button";
 import { inputCls, labelCls } from "@/components/ui";
@@ -7,6 +9,7 @@ export const metadata = { title: "Sign in · Task Monitor" };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; next?: string; staff_no?: string }> }) {
   const sp = await searchParams;
+  if (await getPerson()) redirect("/");
   return (
     <main className="grid min-h-dvh place-items-center px-4 py-10">
       <div className="w-full max-w-sm">

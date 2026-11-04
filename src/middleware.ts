@@ -6,9 +6,9 @@ export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
   const session = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
 
-  if (pathname === "/login") {
-    return session && !session.mustChange ? NextResponse.redirect(new URL("/", req.url)) : NextResponse.next();
-  }
+  // The login page decides for itself (it can check the database); the cookie alone may be stale,
+  // e.g. after a password reset or deactivation, and bouncing it here would loop.
+  if (pathname === "/login") return NextResponse.next();
   if (!session) {
     const url = new URL("/login", req.url);
     if (pathname !== "/") url.searchParams.set("next", pathname + search);
