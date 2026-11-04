@@ -6,7 +6,7 @@ import { markAllRead, openNotification } from "@/app/feature-actions";
 import { PageHeader, EmptyState } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 
-export const metadata = { title: "Notifications · Task Monitor" };
+export const metadata = { title: "Notifications" };
 
 const TEXT: Record<string, (actor: string, title: string) => string> = {
   assigned: (a, t) => `${a} assigned you “${t}”`,

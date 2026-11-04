@@ -8,7 +8,7 @@ import { finishedOn, loadReportRows, pct, resolvePeriod, stats, type Row } from 
 import { PageHeader, inputCls, labelCls } from "@/components/ui";
 import { PrintButton } from "./print-button";
 
-export const metadata = { title: "Reports · Task Monitor" };
+export const metadata = { title: "Reports" };
 
 const PERIODS = [
   ["month", "This month"],

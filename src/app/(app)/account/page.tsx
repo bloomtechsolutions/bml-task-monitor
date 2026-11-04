@@ -5,7 +5,7 @@ import { ROLE_LABEL } from "@/lib/format";
 import { PageHeader, Notice, inputCls, labelCls } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 
-export const metadata = { title: "Account · Task Monitor" };
+export const metadata = { title: "Account" };
 
 export default async function AccountPage({ searchParams }: { searchParams: Promise<{ first?: string; error?: string; saved?: string }> }) {
   const [me, sp] = await Promise.all([requirePerson(), searchParams]);

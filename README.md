@@ -1,4 +1,8 @@
-# Retail Task Monitor
+# Upnext
+
+*Know what's next. Get it done.*
+
+Task tracking for the BML Retail Banking team.
 
 This app is for assigning, tracking and following up on tasks across the BML Retail Banking units.
 

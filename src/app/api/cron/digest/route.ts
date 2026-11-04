@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
       r.due_week_count ? `${r.due_week_count} due this week` : null,
       r.awaiting_count ? `${r.awaiting_count} waiting for your sign-off` : null,
     ].filter(Boolean);
-    const html = `<p>Good morning ${first},</p><p>Here's your week in Task Monitor:</p><ul>${lines.map((l) => `<li>${l}</li>`).join("")}</ul><p><a href="${appUrl}">Open Task Monitor</a></p>`;
+    const html = `<p>Good morning ${first},</p><p>Here's your week in Upnext:</p><ul>${lines.map((l) => `<li>${l}</li>`).join("")}</ul><p><a href="${appUrl}">Open Upnext</a></p>`;
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },

@@ -4,8 +4,9 @@ import "./globals.css";
 
 
 export const metadata: Metadata = {
-  title: "Task Monitor · Retail Banking",
-  description: "Assign, track and follow up on Retail Banking team tasks.",
+  title: { default: "Upnext", template: "%s · Upnext" },
+  description: "Know what's next. Get it done.",
+  applicationName: "Upnext",
 };
 
 export const viewport: Viewport = { themeColor: "#f5f6f8", width: "device-width", initialScale: 1 };

@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
-import { LayoutGrid } from "lucide-react";
 import { getPerson } from "@/lib/auth";
+import { Logo } from "@/components/logo";
 import { login } from "@/app/auth-actions";
 import { SubmitButton } from "@/components/submit-button";
 import { inputCls, labelCls } from "@/components/ui";
 
-export const metadata = { title: "Sign in · Task Monitor" };
+export const metadata = { title: "Sign in" };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; next?: string; staff_no?: string }> }) {
   const sp = await searchParams;
@@ -13,16 +13,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   return (
     <main className="grid min-h-dvh place-items-center px-4 py-10">
       <div className="w-full max-w-sm">
-        <div className="mb-6 flex items-center gap-3">
-          <span aria-hidden className="grid size-10 place-items-center rounded-lg bg-blue-600 text-white">
-            <LayoutGrid className="size-5" />
-          </span>
-          <span className="leading-tight">
-            <span className="block text-lg font-semibold text-slate-900">
-              Task <span className="text-blue-600">Monitor</span>
-            </span>
-            <span className="block text-sm text-slate-500">Retail Banking</span>
-          </span>
+        <div className="mb-6">
+          <Logo size="lg" />
         </div>
 
         <form action={login} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">

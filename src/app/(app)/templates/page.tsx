@@ -10,7 +10,7 @@ import { deleteTemplate, saveTemplate } from "@/app/feature-actions";
 import { PageHeader, Notice, EmptyState, inputCls, labelCls } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 
-export const metadata = { title: "Templates · Task Monitor" };
+export const metadata = { title: "Templates" };
 
 function Fields({ t, units, showUnit }: { t?: Tables<"task_templates">; units: { id: string; name: string }[]; showUnit: boolean }) {
   const items = Array.isArray(t?.checklist) ? (t!.checklist as string[]) : [];

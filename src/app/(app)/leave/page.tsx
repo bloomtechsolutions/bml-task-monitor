@@ -8,7 +8,7 @@ import { addLeave, deleteLeave } from "@/app/feature-actions";
 import { PageHeader, Notice, EmptyState, inputCls, labelCls } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 
-export const metadata = { title: "Leave · Task Monitor" };
+export const metadata = { title: "Leave" };
 
 const KIND_LABEL = { annual: "Annual", sick: "Sick", training: "Training", official: "Official duty", other: "Other" } as const;
 

@@ -6,7 +6,7 @@ import { saveSettings } from "@/app/feature-actions";
 import { PageHeader, Notice, inputCls, labelCls } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 
-export const metadata = { title: "Settings · Task Monitor" };
+export const metadata = { title: "Settings" };
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string }> }) {
   const [me, sp] = await Promise.all([requirePerson(), searchParams]);

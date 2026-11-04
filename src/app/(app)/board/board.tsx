@@ -70,7 +70,7 @@ export function Board({ tasks, meId, showAssignee }: { tasks: Task[]; meId: stri
                 const t = tasks.find((x) => x.id === e.dataTransfer.getData("text/plain"));
                 if (t) move(t, col.status);
               }}
-              className={`flex w-[78vw] max-w-[300px] shrink-0 snap-start flex-col rounded-xl border bg-slate-100/70 md:w-auto md:max-w-none md:min-w-[200px] md:flex-1 md:shrink ${
+              className={`flex w-[78vw] max-w-[300px] shrink-0 snap-start flex-col rounded-xl border bg-slate-100/70 md:w-auto md:max-w-none md:min-w-[176px] md:flex-1 md:shrink ${
                 over === col.status ? "border-blue-400 ring-2 ring-blue-200" : "border-slate-200"
               }`}
             >

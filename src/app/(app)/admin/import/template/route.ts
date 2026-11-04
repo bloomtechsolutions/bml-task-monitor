@@ -11,7 +11,7 @@ export async function GET() {
   const { data: units } = await createClient().from("units").select("name, code").eq("is_active", true).order("name");
 
   const wb = new ExcelJS.Workbook();
-  wb.creator = "Task Monitor";
+  wb.creator = "Upnext";
   const ws = wb.addWorksheet("Staff", { views: [{ state: "frozen", ySplit: 1 }] });
   ws.columns = [
     { header: "Full name *", key: "name", width: 30 },

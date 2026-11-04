@@ -4,10 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  Bell, CalendarDays, ChevronsUpDown, Columns3, FileStack, FolderKanban, KeyRound, LayoutGrid, LayoutDashboard, ListChecks,
+  Bell, CalendarDays, ChevronsUpDown, Columns3, FileStack, FolderKanban, KeyRound, LayoutDashboard, ListChecks,
   LogOut, PanelLeft, Plus, BarChart3, PieChart, Repeat, Settings, Plane, Users, X,
 } from "lucide-react";
 import { logout } from "@/app/auth-actions";
+import { Logo } from "@/components/logo";
 
 type Role = "head" | "manager" | "staff";
 export type ShellPerson = { id: string; name: string; subtitle: string | null; role: Role };
@@ -86,15 +87,7 @@ function SidebarBody({ person, onNavigate }: { person: ShellPerson; onNavigate?:
   return (
     <div className="flex h-full flex-col">
       <Link href="/" onClick={onNavigate} className="m-3 flex items-center gap-3 rounded-xl bg-slate-50 px-3 py-2.5 ring-1 ring-slate-200/70">
-        <span aria-hidden className="grid size-9 place-items-center rounded-lg bg-blue-600 text-white">
-          <LayoutGrid className="size-5" />
-        </span>
-        <span className="min-w-0 leading-tight">
-          <span className="block text-[15px] font-semibold text-slate-900">
-            Task <span className="text-blue-600">Monitor</span>
-          </span>
-          <span className="block truncate text-xs text-slate-500">Retail Banking</span>
-        </span>
+        <Logo />
       </Link>
 
       <nav aria-label="Main" className="flex-1 overflow-y-auto px-3 pb-3">

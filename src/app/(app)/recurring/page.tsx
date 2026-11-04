@@ -9,7 +9,7 @@ import { deleteRecurringRule, saveRecurringRule, toggleRecurringRule } from "@/a
 import { PageHeader, Notice, EmptyState, inputCls, labelCls } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 
-export const metadata = { title: "Recurring tasks · Task Monitor" };
+export const metadata = { title: "Recurring tasks" };
 
 const FREQ_LABEL = { daily: "Every working day (Sun–Thu)", weekly: "Every week", monthly: "Every month", quarterly: "Every quarter" } as const;
 const FREQ_SHORT = { daily: "Daily", weekly: "Weekly", monthly: "Monthly", quarterly: "Quarterly" } as const;

@@ -6,7 +6,7 @@ import { isHead } from "@/lib/permissions";
 import { PageHeader } from "@/components/ui";
 import { ImportFlow } from "./import-flow";
 
-export const metadata = { title: "Import staff · Task Monitor" };
+export const metadata = { title: "Import staff" };
 
 export default async function ImportPage() {
   const me = await requirePerson();

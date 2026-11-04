@@ -9,7 +9,7 @@ import { createTask } from "@/app/actions";
 import { PageHeader, Notice, inputCls, labelCls } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 
-export const metadata = { title: "Assign a task · Task Monitor" };
+export const metadata = { title: "Assign a task" };
 
 const UUID = /^[0-9a-f-]{36}$/i;
 

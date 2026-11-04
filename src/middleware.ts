@@ -22,5 +22,5 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   // Skip static assets and the cron endpoints (they use their own secret).
-  matcher: ["/((?!_next/|api/cron/|favicon.ico|.*\\.(?:png|svg|ico|jpg|webp)$).*)"],
+  matcher: ["/((?!_next/|api/cron/|favicon.ico|manifest.webmanifest|.*\\.(?:png|svg|ico|jpg|webp)$).*)"],
 };

@@ -9,7 +9,7 @@ import { PageHeader, Notice, EmptyState, ProgressBar } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { ProjectFields, PROJECT_STATUS_LABEL } from "@/components/project-fields";
 
-export const metadata = { title: "Projects · Task Monitor" };
+export const metadata = { title: "Projects" };
 
 export default async function ProjectsPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const [me, sp] = await Promise.all([requirePerson(), searchParams]);

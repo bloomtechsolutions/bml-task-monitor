@@ -5,7 +5,7 @@ import { isLead, scopedOr } from "@/lib/permissions";
 import { PageHeader, Notice } from "@/components/ui";
 import { Board } from "./board";
 
-export const metadata = { title: "Board · Task Monitor" };
+export const metadata = { title: "Board" };
 
 export default async function BoardPage({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
   const [me, sp] = await Promise.all([requirePerson(), searchParams]);

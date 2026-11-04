@@ -22,7 +22,7 @@ function groupTasks(tasks: TaskRow[]) {
   };
 }
 
-export const metadata = { title: "My tasks · Task Monitor" };
+export const metadata = { title: "My tasks" };
 
 export default async function MyTasksPage({ searchParams }: { searchParams: Promise<{ view?: string; q?: string }> }) {
   const person = await requirePerson();

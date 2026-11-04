@@ -7,7 +7,7 @@ import { todayMV } from "@/lib/format";
 import { PageHeader } from "@/components/ui";
 import type { Tables } from "@/lib/database.types";
 
-export const metadata = { title: "Calendar · Task Monitor" };
+export const metadata = { title: "Calendar" };
 
 type Task = Tables<"task_overview">;
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
