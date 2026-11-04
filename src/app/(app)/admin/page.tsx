@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { FileSpreadsheet } from "lucide-react";
 import { requirePerson } from "@/lib/auth";
 import { isHead } from "@/lib/permissions";
 import { redirect } from "next/navigation";
@@ -77,7 +79,18 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
   return (
     <>
-      <PageHeader title="People & units" subtitle="Who can sign in, their unit and role. Only the Head of Retail can change this page." />
+      <PageHeader
+        title="People & units"
+        subtitle="Who can sign in, their unit and role. Only the Head of Retail can change this page."
+        action={
+          <Link
+            href="/admin/import"
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            <FileSpreadsheet aria-hidden className="size-4" /> Import from Excel
+          </Link>
+        }
+      />
       {sp.error && <Notice tone="error">{sp.error}</Notice>}
       {saved && <Notice tone="success">Saved {saved.full_name}.</Notice>}
       {sp.unit && <Notice tone="success">Saved unit {sp.unit}.</Notice>}

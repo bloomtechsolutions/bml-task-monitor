@@ -14,7 +14,8 @@ import {
   Users,
 } from "lucide-react";
 import { requirePerson } from "@/lib/auth";
-import { scopedOr } from "@/lib/permissions";
+import { isLead, scopedOr, taskScope } from "@/lib/permissions";
+import { PendingWork, pendingCounts, type PendingGroup } from "@/components/pending-work";
 import { createClient } from "@/lib/supabase/server";
 import { addDays, todayMV } from "@/lib/format";
 import { Notice } from "@/components/ui";
@@ -82,12 +83,16 @@ function QuickLink({ href, icon: Icon, title, body, tone }: { href: string; icon
 
 const rank = (t: TaskRow) => (t.is_overdue ? 0 : t.status === "blocked" ? 1 : t.priority === "urgent" ? 2 : t.priority === "high" ? 3 : 4);
 
-export default async function DashboardPage() {
-  const person = await requirePerson();
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ group?: string }> }) {
+  const [person, sp] = await Promise.all([requirePerson(), searchParams]);
+  const lead = isLead(person);
 
   const supabase = createClient();
   const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
-  const [{ data: mine, error }, { data: delegated }, { data: unit }] = await Promise.all([
+  const scope = taskScope(person);
+  let teamQ = supabase.from("task_overview").select("*").in("status", ["not_started", "in_progress", "blocked", "submitted"]).order("due_date").limit(1500);
+  if (scope) teamQ = teamQ.or(scope);
+  const [{ data: mine, error }, { data: delegated }, { data: unit }, { data: team }] = await Promise.all([
     supabase
       .from("task_overview")
       .select("*")
@@ -108,7 +113,10 @@ export default async function DashboardPage() {
     person.unit_id
       ? supabase.from("units").select("name").eq("id", person.unit_id).maybeSingle()
       : Promise.resolve({ data: null }),
+    lead ? teamQ : Promise.resolve({ data: null }),
   ]);
+  const teamCounts = pendingCounts(team ?? []);
+  const group: PendingGroup = sp.group === "person" || (sp.group === "unit" && person.role === "head") ? sp.group : "status";
 
   const weekEnd = addDays(todayMV(), 7);
   const tasks = mine ?? [];
@@ -161,6 +169,35 @@ export default async function DashboardPage() {
         <StatCard href="/tasks" icon={CalendarClock} label="Due this week" value={dueWeek.length} hint="Next 7 days" tone="amber" />
         <StatCard href="/tasks" icon={CheckCircle2} label="Completed" value={done30.length} hint="Last 30 days" tone="green" />
       </section>
+
+      {lead && (
+        <section aria-labelledby="team-snap-h" className="mb-6">
+          <div className="mb-3 flex items-baseline justify-between gap-3">
+            <h2 id="team-snap-h" className="text-[17px] font-semibold text-slate-900">
+              {person.role === "head" ? "Retail Banking: all pending work" : `${unit?.name ?? "My unit"}: all pending work`}
+            </h2>
+            <Link href="/team" className="text-sm font-medium text-blue-700 hover:underline">
+              Team overview
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-5">
+            {(
+              [
+                ["Pending", teamCounts.pending, "text-blue-600", "#pending-h"],
+                ["Overdue", teamCounts.overdue, teamCounts.overdue ? "text-red-600" : "text-slate-900", "?group=status#pending-h"],
+                ["Blocked", teamCounts.blocked, teamCounts.blocked ? "text-amber-600" : "text-slate-900", "?group=status#pending-h"],
+                ["Awaiting sign-off", teamCounts.awaiting, teamCounts.awaiting ? "text-violet-600" : "text-slate-900", "?group=status#pending-h"],
+                ["Due this week", teamCounts.dueWeek, "text-slate-900", "?group=status#pending-h"],
+              ] as const
+            ).map(([label, n, tone, href]) => (
+              <Link key={label} href={href} className="rounded-xl border border-slate-200 bg-white px-5 py-3.5 shadow-xs hover:border-slate-300">
+                <p className="text-sm text-slate-600">{label}</p>
+                <p className={`mt-1 text-2xl font-semibold tabular-nums ${tone}`}>{n}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
         <section aria-labelledby="priority-h" className="flex min-h-[420px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
@@ -248,6 +285,17 @@ export default async function DashboardPage() {
           )}
         </div>
       </div>
+      {lead && (
+        <div className="mt-8">
+          <PendingWork
+            tasks={team ?? []}
+            group={group}
+            hrefFor={(g) => `/?group=${g}#pending-h`}
+            allowUnit={person.role === "head"}
+            meId={person.id}
+          />
+        </div>
+      )}
     </>
   );
 }

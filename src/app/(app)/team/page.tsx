@@ -5,7 +5,8 @@ import { isLead, unitScope } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { addDays, todayMV } from "@/lib/format";
 import { PageHeader, EmptyState, Notice } from "@/components/ui";
-import { TaskGroup, type TaskRow } from "@/components/task-row";
+import { type TaskRow } from "@/components/task-row";
+import { PendingWork, pendingCounts, type PendingGroup } from "@/components/pending-work";
 
 type Counts = { open: number; overdue: number; blocked: number; dueWeek: number; done30: number; onTime30: number };
 const emptyCounts = (): Counts => ({ open: 0, overdue: 0, blocked: 0, dueWeek: 0, done30: 0, onTime30: 0 });
@@ -36,8 +37,8 @@ function Metric({ label, value, tone }: { label: string; value: string | number;
   );
 }
 
-export default async function TeamPage({ searchParams }: { searchParams: Promise<{ unit?: string }> }) {
-  const [{ unit: requestedUnit }, me] = await Promise.all([searchParams, requirePerson()]);
+export default async function TeamPage({ searchParams }: { searchParams: Promise<{ unit?: string; group?: string }> }) {
+  const [{ unit: requestedUnit, group: groupParam }, me] = await Promise.all([searchParams, requirePerson()]);
   if (!isLead(me)) redirect("/");
   const myUnit = unitScope(me);
   const unitFilter = myUnit ?? requestedUnit;
@@ -78,14 +79,21 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
   }
   const workload = [...people.entries()]
     .map(([id, p]) => ({ id, ...p, c: tally(p.tasks, weekEnd) }))
-    .sort((a, b) => b.c.overdue - a.c.overdue || b.c.open - a.c.open);
+    .sort((a, b) => b.c.overdue - a.c.overdue || b.c.open - a.c.open || a.name.localeCompare(b.name));
 
-  const open = all.filter((t) => t.status !== "done" && t.status !== "submitted");
-  const overdue = open.filter((t) => t.is_overdue).sort((a, b) => (b.days_overdue ?? 0) - (a.days_overdue ?? 0));
-  const blocked = open.filter((t) => t.status === "blocked" && !t.is_overdue);
   const unitStats = !selectedUnit
-    ? visibleUnits.map((u) => ({ u, c: tally((rows ?? []).filter((t) => t.unit_id === u.id), weekEnd) }))
+    ? visibleUnits
+        .map((u) => {
+          const ts = (rows ?? []).filter((t) => t.unit_id === u.id);
+          return { u, p: pendingCounts(ts), c: tally(ts, weekEnd) };
+        })
+        .filter((x) => x.p.pending + x.c.done30 > 0)
     : [];
+  const pc = pendingCounts(all);
+  const group: PendingGroup = groupParam === "status" || (groupParam === "unit" && !selectedUnit) ? groupParam : "person";
+  const hrefFor = (g: PendingGroup) => `/team?${new URLSearchParams({ ...(selectedUnit && !myUnit ? { unit: selectedUnit.id } : {}), group: g })}#pending-h`;
+  const th = "px-2 py-2 text-right font-medium";
+  const td = (n: number, tone = "") => <td className={`px-2 py-2.5 text-right tabular-nums ${n ? tone : "text-slate-400"}`}>{n}</td>;
 
   return (
     <>
@@ -114,100 +122,119 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
 
       {error && <Notice tone="error">Couldn&apos;t load team tasks. Refresh to try again.</Notice>}
 
-      <section aria-label="Summary" className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-5">
-        <Metric label="Open" value={totals.open} />
-        <Metric label="Overdue" value={totals.overdue} tone={totals.overdue ? "danger" : undefined} />
-        <Metric label="Blocked" value={totals.blocked} tone={totals.blocked ? "warn" : undefined} />
-        <Metric label="Due in 7 days" value={totals.dueWeek} />
+      <section aria-label="Summary" className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-6">
+        <Metric label="Pending" value={pc.pending} />
+        <Metric label="Overdue" value={pc.overdue} tone={pc.overdue ? "danger" : undefined} />
+        <Metric label="Blocked" value={pc.blocked} tone={pc.blocked ? "warn" : undefined} />
+        <Metric label="Awaiting sign-off" value={pc.awaiting} />
+        <Metric label="Due in 7 days" value={pc.dueWeek} />
         <Metric label="On time (30 days)" value={onTimeRate === null ? "—" : `${onTimeRate}%`} />
       </section>
 
       {all.length === 0 && !error ? (
         <EmptyState title="No tasks yet" body="Once tasks are assigned in your team, their progress shows up here." />
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-          <div className="min-w-0">
-            <TaskGroup title="Overdue — needs follow-up" tasks={overdue} showPerson="both" tone="danger" />
-            <TaskGroup title="Blocked" tasks={blocked} showPerson="both" />
-            {overdue.length === 0 && blocked.length === 0 && (
-              <p className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-                Nothing overdue or blocked.
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-6">
-            {unitStats.length > 0 && (
-              <section aria-labelledby="units-h" className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
-                <h2 id="units-h" className="px-4 py-2.5 text-sm font-semibold text-slate-800">
-                  By unit
-                </h2>
-                <table className="w-full border-t border-slate-100 text-sm">
+        <div className="space-y-6">
+          {unitStats.length > 0 && (
+            <section aria-labelledby="units-h" className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
+              <h2 id="units-h" className="px-4 py-3 font-semibold text-slate-900">
+                By unit
+              </h2>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[640px] border-t border-slate-100 text-sm">
                   <thead className="text-xs text-slate-500">
                     <tr>
                       <th scope="col" className="px-4 py-2 text-left font-medium">Unit</th>
-                      <th scope="col" className="px-2 py-2 text-right font-medium">Open</th>
-                      <th scope="col" className="px-4 py-2 text-right font-medium">Overdue</th>
+                      <th scope="col" className={th}>Pending</th>
+                      <th scope="col" className={th}>Not started</th>
+                      <th scope="col" className={th}>In progress</th>
+                      <th scope="col" className={th}>Blocked</th>
+                      <th scope="col" className={th}>Awaiting sign-off</th>
+                      <th scope="col" className={th}>Overdue</th>
+                      <th scope="col" className="px-4 py-2 text-right font-medium">Done 30d</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {unitStats.map(({ u, c }) => (
+                    {unitStats.map(({ u, p, c }) => (
                       <tr key={u.id}>
                         <td className="px-4 py-2.5">
                           <Link href={`/team?unit=${u.id}`} className="font-medium text-slate-900 hover:underline">
                             {u.name}
                           </Link>
                         </td>
-                        <td className="px-2 py-2.5 text-right tabular-nums">{c.open}</td>
-                        <td className={`px-4 py-2.5 text-right tabular-nums ${c.overdue ? "font-semibold text-red-700" : "text-slate-500"}`}>{c.overdue}</td>
+                        {td(p.pending, "font-semibold text-slate-900")}
+                        {td(p.notStarted)}
+                        {td(p.inProgress)}
+                        {td(p.blocked, "font-semibold text-amber-700")}
+                        {td(p.awaiting, "text-violet-700")}
+                        {td(p.overdue, "font-semibold text-red-700")}
+                        <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">{c.done30}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              </section>
-            )}
+              </div>
+            </section>
+          )}
 
-            <section aria-labelledby="people-h" className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
-              <h2 id="people-h" className="px-4 py-2.5 text-sm font-semibold text-slate-800">
+          <section aria-labelledby="people-h" className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-3">
+              <h2 id="people-h" className="font-semibold text-slate-900">
                 Workload by person
               </h2>
-              {workload.length === 0 ? (
-                <p className="border-t border-slate-100 px-4 py-3 text-sm text-slate-500">No assigned tasks.</p>
-              ) : (
-                <table className="w-full border-t border-slate-100 text-sm">
+              <p className="text-xs text-slate-500">Orange = {overload}+ pending (overloaded). Change in Settings.</p>
+            </div>
+            {workload.length === 0 ? (
+              <p className="border-t border-slate-100 px-4 py-3 text-sm text-slate-500">No assigned tasks.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px] border-t border-slate-100 text-sm">
                   <thead className="text-xs text-slate-500">
                     <tr>
                       <th scope="col" className="px-4 py-2 text-left font-medium">Person</th>
-                      <th scope="col" className="px-2 py-2 text-right font-medium">Open</th>
-                      <th scope="col" className="px-2 py-2 text-right font-medium">Overdue</th>
+                      <th scope="col" className={th}>Pending</th>
+                      <th scope="col" className={th}>Not started</th>
+                      <th scope="col" className={th}>In progress</th>
+                      <th scope="col" className={th}>Blocked</th>
+                      <th scope="col" className={th}>Awaiting sign-off</th>
+                      <th scope="col" className={th}>Overdue</th>
                       <th scope="col" className="px-4 py-2 text-right font-medium">Done 30d</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {workload.map((p) => (
-                      <tr key={p.id}>
-                        <td className="px-4 py-2.5">
-                          <span className="font-medium text-slate-900">{p.name}</span>
-                          {!selectedUnit && <span className="ml-1.5 text-xs text-slate-400">{p.unit}</span>}
-                          {leaveOf(p.id) && (
-                            <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] text-amber-900">
-                              {leaveOf(p.id)!.start_date <= today ? "On leave" : "Leave soon"}
-                            </span>
-                          )}
-                        </td>
-                        <td className={`px-2 py-2.5 text-right tabular-nums ${p.c.open >= overload ? "font-semibold text-orange-700" : ""}`}>
-                          {p.c.open}
-                          {p.c.open >= overload && <span className="sr-only"> (overloaded)</span>}
-                        </td>
-                        <td className={`px-2 py-2.5 text-right tabular-nums ${p.c.overdue ? "font-semibold text-red-700" : "text-slate-500"}`}>{p.c.overdue}</td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">{p.c.done30}</td>
-                      </tr>
-                    ))}
+                    {workload.map((p) => {
+                      const q = pendingCounts(p.tasks);
+                      return (
+                        <tr key={p.id}>
+                          <td className="px-4 py-2.5">
+                            <span className="font-medium text-slate-900">{p.name}</span>
+                            {!selectedUnit && <span className="ml-1.5 text-xs text-slate-400">{p.unit}</span>}
+                            {leaveOf(p.id) && (
+                              <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] text-amber-900">
+                                {leaveOf(p.id)!.start_date <= today ? "On leave" : "Leave soon"}
+                              </span>
+                            )}
+                          </td>
+                          <td className={`px-2 py-2.5 text-right tabular-nums ${q.pending >= overload ? "font-semibold text-orange-700" : "font-semibold text-slate-900"}`}>
+                            {q.pending}
+                            {q.pending >= overload && <span className="sr-only"> (overloaded)</span>}
+                          </td>
+                          {td(q.notStarted)}
+                          {td(q.inProgress)}
+                          {td(q.blocked, "font-semibold text-amber-700")}
+                          {td(q.awaiting, "text-violet-700")}
+                          {td(q.overdue, "font-semibold text-red-700")}
+                          <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">{p.c.done30}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
-              )}
-            </section>
-          </div>
+              </div>
+            )}
+          </section>
+
+          <PendingWork tasks={all} group={group} hrefFor={hrefFor} allowUnit={!selectedUnit} meId={me.id} />
         </div>
       )}
     </>
