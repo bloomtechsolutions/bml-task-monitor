@@ -91,7 +91,7 @@ export default async function TaskPage({
   return (
     <div className="mx-auto max-w-5xl">
       <Link
-        href={task.parent_task_id ? `/tasks/${task.parent_task_id}` : isAssignee ? "/" : "/?view=assigned"}
+        href={task.parent_task_id ? `/tasks/${task.parent_task_id}` : isAssignee ? "/tasks" : "/tasks?view=assigned"}
         className="mb-3 inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900"
       >
         <ArrowLeft aria-hidden className="size-4" /> {task.parent_task_id ? "Parent task" : "Back to tasks"}
@@ -103,7 +103,7 @@ export default async function TaskPage({
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="min-w-0 space-y-6">
           {/* Summary */}
-          <section className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
+          <section className="rounded-xl border border-slate-200 bg-white shadow-xs p-4 sm:p-5">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
               <StatusBadge status={task.status} />
               <DueText label={dueLabel(task.due_date, task.status)} overdue={task.is_overdue === true} />
@@ -118,7 +118,7 @@ export default async function TaskPage({
 
           {/* Primary action: progress update */}
           {canUpdate && !closed && (
-            <section aria-labelledby="update-h" className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
+            <section aria-labelledby="update-h" className="rounded-xl border border-slate-200 bg-white shadow-xs p-4 sm:p-5">
               <h2 id="update-h" className="mb-3 font-semibold text-slate-900">
                 Post a progress update
               </h2>
@@ -128,7 +128,7 @@ export default async function TaskPage({
 
           {/* Sub-tasks */}
           {((subtasks?.length ?? 0) > 0 || canManage) && !closed && (
-            <section aria-labelledby="sub-h" className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <section aria-labelledby="sub-h" className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
               <div className="flex items-center justify-between px-4 py-3">
                 <h2 id="sub-h" className="font-semibold text-slate-900">
                   Sub-tasks{" "}
@@ -153,7 +153,7 @@ export default async function TaskPage({
           )}
 
           {/* Activity */}
-          <section aria-labelledby="activity-h" className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
+          <section aria-labelledby="activity-h" className="rounded-xl border border-slate-200 bg-white shadow-xs p-4 sm:p-5">
             <h2 id="activity-h" className="mb-3 font-semibold text-slate-900">
               Activity
             </h2>
@@ -199,7 +199,7 @@ export default async function TaskPage({
 
         {/* Side panel */}
         <aside className="space-y-6">
-          <section className="rounded-lg border border-slate-200 bg-white p-4">
+          <section className="rounded-xl border border-slate-200 bg-white shadow-xs p-4">
             <dl className="space-y-3 text-sm">
               {(
                 [
@@ -221,7 +221,7 @@ export default async function TaskPage({
           </section>
 
           {canManage && (
-            <section aria-labelledby="manage-h" className="rounded-lg border border-slate-200 bg-white p-4">
+            <section aria-labelledby="manage-h" className="rounded-xl border border-slate-200 bg-white shadow-xs p-4">
               <h2 id="manage-h" className="mb-3 text-sm font-semibold text-slate-900">
                 Manage task
               </h2>

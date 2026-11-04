@@ -54,7 +54,7 @@ export function ProgressBar({ value }: { value: number }) {
   return (
     <div className="flex items-center gap-2" aria-label={`${value}% complete`}>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
-        <div className="h-full rounded-full bg-slate-800" style={{ width: `${value}%` }} />
+        <div className="h-full rounded-full bg-blue-600" style={{ width: `${value}%` }} />
       </div>
       <span className="w-9 text-right text-xs tabular-nums text-slate-600">{value}%</span>
     </div>
@@ -63,10 +63,10 @@ export function ProgressBar({ value }: { value: number }) {
 
 export function PageHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: ReactNode }) {
   return (
-    <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+    <div className="mt-4 mb-6 flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">{title}</h1>
-        {subtitle && <p className="mt-0.5 text-sm text-slate-600">{subtitle}</p>}
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-[26px]">{title}</h1>
+        {subtitle && <p className="mt-1 text-[15px] text-slate-600">{subtitle}</p>}
       </div>
       {action}
     </div>
@@ -75,7 +75,7 @@ export function PageHeader({ title, subtitle, action }: { title: string; subtitl
 
 export function EmptyState({ title, body, action }: { title: string; body?: string; action?: ReactNode }) {
   return (
-    <div className="rounded-lg border border-dashed border-slate-300 px-4 py-10 text-center">
+    <div className="rounded-xl border border-dashed border-slate-300 px-4 py-10 text-center">
       <p className="font-medium text-slate-800">{title}</p>
       {body && <p className="mx-auto mt-1 max-w-sm text-sm text-slate-600">{body}</p>}
       {action && <div className="mt-4">{action}</div>}
@@ -99,16 +99,16 @@ export function Notice({ tone, children }: { tone: "error" | "success" | "info";
 export function ButtonLink({ href, children, variant = "primary" }: { href: string; children: ReactNode; variant?: "primary" | "secondary" }) {
   const cls =
     variant === "primary"
-      ? "bg-slate-900 text-white hover:bg-slate-800"
+      ? "bg-blue-600 text-white hover:bg-blue-700"
       : "border border-slate-300 bg-white text-slate-800 hover:bg-slate-50";
   return (
-    <Link href={href} className={`inline-flex min-h-10 items-center gap-1.5 rounded-md px-4 text-sm font-medium ${cls}`}>
+    <Link href={href} className={`inline-flex min-h-10 items-center gap-1.5 rounded-lg px-4 text-sm font-medium ${cls}`}>
       {children}
     </Link>
   );
 }
 
 export const inputCls =
-  "block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-[15px] text-slate-900 shadow-xs placeholder:text-slate-400 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:bg-slate-100";
+  "block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[15px] text-slate-900 shadow-xs placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:bg-slate-100";
 
 export const labelCls = "mb-1 block text-sm font-medium text-slate-800";

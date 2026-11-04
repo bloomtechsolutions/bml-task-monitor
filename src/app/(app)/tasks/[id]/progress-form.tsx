@@ -25,7 +25,7 @@ export function ProgressForm({ taskId, status, progress }: { taskId: string; sta
             <label
               key={c}
               className={`flex min-h-11 cursor-pointer items-center justify-center rounded-md border px-2 text-sm font-medium has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-slate-400 ${
-                s === c ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                s === c ? "border-blue-600 bg-blue-600 text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
               }`}
             >
               <input type="radio" name="status" value={c} checked={s === c} onChange={() => setS(c)} className="sr-only" />
@@ -49,7 +49,7 @@ export function ProgressForm({ taskId, status, progress }: { taskId: string; sta
           value={effectiveProgress}
           disabled={s === "done"}
           onChange={(e) => setP(Number(e.target.value))}
-          className="h-11 w-full accent-slate-900"
+          className="h-11 w-full accent-blue-600"
         />
         {s === "done" && <input type="hidden" name="progress" value={100} />}
       </div>

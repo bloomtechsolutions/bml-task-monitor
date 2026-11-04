@@ -50,7 +50,7 @@ export default async function NewTaskPage({ searchParams }: { searchParams: Prom
           .
         </Notice>
       ) : (
-        <form action={createTask} className="space-y-5 rounded-lg border border-slate-200 bg-white p-4 sm:p-6">
+        <form action={createTask} className="space-y-5 rounded-xl border border-slate-200 bg-white shadow-xs p-4 sm:p-6">
           {parent?.id && <input type="hidden" name="parent_task_id" value={parent.id} />}
 
           <div>

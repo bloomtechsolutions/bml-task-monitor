@@ -24,11 +24,11 @@ function tally(tasks: TaskRow[], weekEnd: string): Counts {
 }
 
 function Metric({ label, value, tone }: { label: string; value: string | number; tone?: "danger" | "warn" }) {
-  const color = tone === "danger" ? "text-red-700" : tone === "warn" ? "text-amber-700" : "text-slate-900";
+  const color = tone === "danger" ? "text-red-600" : tone === "warn" ? "text-amber-600" : "text-blue-600";
   return (
-    <div className="px-4 py-3">
-      <p className="text-xs font-medium text-slate-500">{label}</p>
-      <p className={`mt-0.5 text-2xl font-semibold tabular-nums ${color}`}>{value}</p>
+    <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-xs">
+      <p className="text-[15px] text-slate-700">{label}</p>
+      <p className={`mt-2 text-3xl font-semibold tabular-nums ${color}`}>{value}</p>
     </div>
   );
 }
@@ -91,7 +91,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
                 key={u.id || "all"}
                 href={u.id ? `/team?unit=${u.id}` : "/team"}
                 aria-current={active ? "page" : undefined}
-                className={`shrink-0 rounded-full border px-3 py-1.5 text-sm font-medium ${active ? "border-slate-900 bg-slate-900 text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}
+                className={`shrink-0 rounded-full border px-3 py-1.5 text-sm font-medium ${active ? "border-blue-600 bg-blue-600 text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}`}
               >
                 {u.name}
               </Link>
@@ -102,7 +102,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
 
       {error && <Notice tone="error">Couldn&apos;t load team tasks. Refresh to try again.</Notice>}
 
-      <section aria-label="Summary" className="mb-6 grid grid-cols-2 divide-x divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200 bg-white sm:grid-cols-5 sm:divide-y-0">
+      <section aria-label="Summary" className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-5">
         <Metric label="Open" value={totals.open} />
         <Metric label="Overdue" value={totals.overdue} tone={totals.overdue ? "danger" : undefined} />
         <Metric label="Blocked" value={totals.blocked} tone={totals.blocked ? "warn" : undefined} />
@@ -126,7 +126,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
 
           <div className="space-y-6">
             {unitStats.length > 0 && (
-              <section aria-labelledby="units-h" className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+              <section aria-labelledby="units-h" className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
                 <h2 id="units-h" className="px-4 py-2.5 text-sm font-semibold text-slate-800">
                   By unit
                 </h2>
@@ -155,7 +155,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
               </section>
             )}
 
-            <section aria-labelledby="people-h" className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <section aria-labelledby="people-h" className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
               <h2 id="people-h" className="px-4 py-2.5 text-sm font-semibold text-slate-800">
                 Workload by person
               </h2>

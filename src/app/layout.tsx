@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description: "Assign, track and follow up on Retail Banking team tasks.",
 };
 
-export const viewport: Viewport = { themeColor: "#0f172a", width: "device-width", initialScale: 1 };
+export const viewport: Viewport = { themeColor: "#f5f6f8", width: "device-width", initialScale: 1 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (

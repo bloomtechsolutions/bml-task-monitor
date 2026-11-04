@@ -80,7 +80,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       <UnitsSection units={units ?? []} />
       {error && <Notice tone="error">Couldn&apos;t load people.</Notice>}
 
-      <details className="mb-6 overflow-hidden rounded-lg border border-slate-200 bg-white" open={(profiles ?? []).length <= 1}>
+      <details className="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs" open={(profiles ?? []).length <= 1}>
         <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-900">+ Add a person</summary>
         <form action={addPerson} className="grid gap-3 border-t border-slate-100 p-4 sm:grid-cols-12 sm:items-end">
           <PersonFields units={units ?? []} />
@@ -100,7 +100,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       {list.length === 0 ? (
         <EmptyState title={q ? "No one matches that search" : "No one on the list yet"} body="Add your team above." />
       ) : (
-        <section aria-labelledby="team-h" className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+        <section aria-labelledby="team-h" className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
           <h2 id="team-h" className="px-4 py-2.5 text-sm font-semibold text-slate-800">
             Team <span className="font-normal tabular-nums text-slate-500">{list.length}</span>
           </h2>
@@ -111,7 +111,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                   <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3">
                     <span>
                       <span className="font-medium text-slate-900">{p.full_name ?? "Unnamed"}</span>
-                      {p.id === person?.id && <span className="ml-2 rounded bg-slate-900 px-1.5 py-0.5 text-xs text-white">You</span>}
+                      {p.id === person?.id && <span className="ml-2 rounded bg-blue-600 px-1.5 py-0.5 text-xs text-white">You</span>}
                       {!p.is_active && <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-700">Inactive</span>}
                       <span className="block text-xs text-slate-500">
                         {[ROLE_LABEL[p.role], (units ?? []).find((u) => u.id === p.unit_id)?.name, p.staff_no].filter(Boolean).join(" · ")}
@@ -146,7 +146,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 function UnitsSection({ units }: { units: Unit[] }) {
   const field = "mb-1 block text-xs font-medium text-slate-600";
   return (
-    <details className="mb-6 overflow-hidden rounded-lg border border-slate-200 bg-white" open={units.length === 0}>
+    <details className="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs" open={units.length === 0}>
       <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-900">
         Units <span className="font-normal tabular-nums text-slate-500">{units.length}</span>
         {units.length === 0 && <span className="ml-2 font-normal text-slate-500">Add your units first, then your people.</span>}

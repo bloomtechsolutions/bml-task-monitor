@@ -16,7 +16,11 @@ All access rules are enforced in Postgres with row-level security. Hiding someth
 
 ## Screens (Phase 1)
 
-- **My tasks** (`/`) shows tasks assigned to you or assigned by you, grouped by Overdue, Blocked, Due in 7 days and Later.
+The app uses a sidebar layout (Workspace, then Organization). The sidebar collapses on desktop and becomes a drawer on phones. The card at the bottom of the sidebar is the "I am…" switcher.
+
+
+- **Dashboard** (`/`) shows a greeting, your open, overdue, due-this-week and completed counts, your priority tasks, quick links, and tasks you assigned that need follow-up.
+- **My tasks** (`/tasks`) shows tasks assigned to you or assigned by you, grouped by Overdue, Blocked, Due in 7 days and Later.
 - **Task** (`/tasks/[id]`) lets you post a progress update (status, % and note), add comments and sub-tasks, and see the full audit trail. Managers can also change the due date, priority or assignee, or cancel the task.
 - **Assign** (`/tasks/new`) creates a task or a sub-task.
 - **Team** (`/team`) shows open, overdue and blocked counts, the on-time rate, a breakdown by unit and workload per person.

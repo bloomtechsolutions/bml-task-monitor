@@ -7,14 +7,16 @@ import { StatusBadge, PriorityTag, DueText, ProgressBar } from "@/components/ui"
 export type TaskRow = Tables<"task_overview">;
 
 /** Compact list row. Show person = the other party (assignee in "assigned by me", assigner in "my tasks"). */
-export function TaskListItem({ task, showPerson }: { task: TaskRow; showPerson?: "assignee" | "assigner" | "both" }) {
+export function TaskListItem({ task, showPerson, compact = false }: { task: TaskRow; showPerson?: "assignee" | "assigner" | "both"; compact?: boolean }) {
   if (!task.id || !task.status || !task.priority) return null;
   const overdue = task.is_overdue === true;
   const person =
     showPerson === "assignee"
       ? task.assignee_name
       : showPerson === "assigner"
-        ? task.assigned_by_name && `From ${task.assigned_by_name}`
+        ? task.assigned_by && task.assigned_by === task.assignee_id
+          ? "Self-assigned"
+          : task.assigned_by_name && `From ${task.assigned_by_name}`
         : showPerson === "both"
           ? task.assignee_name
           : null;
@@ -43,7 +45,7 @@ export function TaskListItem({ task, showPerson }: { task: TaskRow; showPerson?:
             {task.unit_code && showPerson === "both" && <span className="text-xs text-slate-400">{task.unit_code}</span>}
           </div>
         </div>
-        <div className="hidden w-32 shrink-0 sm:block">
+        <div className={compact ? "hidden" : "hidden w-32 shrink-0 sm:block"}>
           <ProgressBar value={task.progress ?? 0} />
         </div>
         <ChevronRight aria-hidden className="size-4 shrink-0 text-slate-400 group-hover:text-slate-700" />
@@ -67,7 +69,7 @@ export function TaskGroup({
 }) {
   if (tasks.length === 0) return null;
   return (
-    <details open={!collapsed} className="group/section mb-4 overflow-hidden rounded-lg border border-slate-200 bg-white">
+    <details open={!collapsed} className="group/section mb-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
       <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-2.5 select-none [&::-webkit-details-marker]:hidden">
         <h2 className={`text-sm font-semibold ${tone === "danger" ? "text-red-800" : "text-slate-800"}`}>
           {title} <span className="ml-1 font-normal tabular-nums text-slate-500">{tasks.length}</span>
