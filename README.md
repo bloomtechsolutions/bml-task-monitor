@@ -20,7 +20,7 @@ All access rules are enforced in Postgres with row-level security. Hiding someth
 - **Task** (`/tasks/[id]`) lets you post a progress update (status, % and note), add comments and sub-tasks, and see the full audit trail. Managers can also change the due date, priority or assignee, or cancel the task.
 - **Assign** (`/tasks/new`) creates a task or a sub-task.
 - **Team** (`/team`) shows open, overdue and blocked counts, the on-time rate, a breakdown by unit and workload per person.
-- **People** (`/admin`) is for the Head only. It sets each person's unit, role and access.
+- **People** (`/admin`) manages units (name, code, active) and people (unit, role, active). Add units first.
 
 ## Environment variables
 
@@ -40,3 +40,12 @@ npm run dev
 ```
 
 Schema changes go in `supabase/migrations/`. After each change, regenerate `src/lib/database.types.ts`.
+
+## Database
+
+Supabase project `ylpzyypgiovqxdaoqius` (Mumbai, `ap-south-1`). Migrations, in order:
+
+1. `20261104070000_baseline_schema.sql` creates the tables, enums, triggers (completion bookkeeping, audit trail), indexes and the `task_overview` view.
+2. `20261104071500_open_access_no_login.sql` sets open-access policies and the `post_task_update` / `update_task_as` RPCs, and seeds the Head of Retail.
+
+Both are applied to the project. To rebuild a fresh project, run them in the SQL editor in this order.

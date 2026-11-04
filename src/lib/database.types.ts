@@ -1,4 +1,4 @@
-// Generated from Supabase project wwncbiyuysfsyidtsegv (trimmed helper generics).
+// Generated from Supabase project ylpzyypgiovqxdaoqius (trimmed helper generics).
 // Regenerate after schema changes.
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 

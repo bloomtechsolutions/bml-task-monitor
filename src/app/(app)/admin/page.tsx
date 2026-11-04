@@ -2,11 +2,11 @@ import { getPerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ROLE_LABEL } from "@/lib/format";
 import { USER_ROLES, type Tables } from "@/lib/database.types";
-import { addPerson, updateProfile } from "@/app/actions";
+import { addPerson, saveUnit, updateProfile } from "@/app/actions";
 import { PageHeader, Notice, EmptyState, inputCls } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 
-type Unit = { id: string; name: string };
+type Unit = { id: string; name: string; code: string; is_active: boolean };
 
 function PersonFields({ p, units }: { p?: Tables<"profiles">; units: Unit[] }) {
   const field = "mb-1 block text-xs font-medium text-slate-600";
@@ -28,7 +28,7 @@ function PersonFields({ p, units }: { p?: Tables<"profiles">; units: Unit[] }) {
         <span className={field}>Unit</span>
         <select name="unit_id" defaultValue={p?.unit_id ?? ""} className={inputCls}>
           <option value="">— None —</option>
-          {units.map((u) => (
+          {units.filter((u) => u.is_active || u.id === p?.unit_id).map((u) => (
             <option key={u.id} value={u.id}>
               {u.name}
             </option>
@@ -55,13 +55,13 @@ function PersonFields({ p, units }: { p?: Tables<"profiles">; units: Unit[] }) {
   );
 }
 
-export default async function AdminPage({ searchParams }: { searchParams: Promise<{ saved?: string; error?: string; q?: string }> }) {
+export default async function AdminPage({ searchParams }: { searchParams: Promise<{ saved?: string; unit?: string; error?: string; q?: string }> }) {
   const sp = await searchParams;
   const q = (sp.q ?? "").trim().toLowerCase();
   const supabase = createClient();
   const [person, { data: units }, { data: profiles, error }] = await Promise.all([
     getPerson(),
-    supabase.from("units").select("id, name").order("name"),
+    supabase.from("units").select("id, name, code, is_active").order("name"),
     supabase.from("profiles").select("*").order("full_name"),
   ]);
 
@@ -75,6 +75,9 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       <PageHeader title="People" subtitle="Everyone who can be assigned tasks. Anyone with the link can edit this list." />
       {sp.error && <Notice tone="error">{sp.error}</Notice>}
       {saved && <Notice tone="success">Saved {saved.full_name}.</Notice>}
+      {sp.unit && <Notice tone="success">Saved unit {sp.unit}.</Notice>}
+
+      <UnitsSection units={units ?? []} />
       {error && <Notice tone="error">Couldn&apos;t load people.</Notice>}
 
       <details className="mb-6 overflow-hidden rounded-lg border border-slate-200 bg-white" open={(profiles ?? []).length <= 1}>
@@ -137,5 +140,46 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         </section>
       )}
     </>
+  );
+}
+
+function UnitsSection({ units }: { units: Unit[] }) {
+  const field = "mb-1 block text-xs font-medium text-slate-600";
+  return (
+    <details className="mb-6 overflow-hidden rounded-lg border border-slate-200 bg-white" open={units.length === 0}>
+      <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-900">
+        Units <span className="font-normal tabular-nums text-slate-500">{units.length}</span>
+        {units.length === 0 && <span className="ml-2 font-normal text-slate-500">Add your units first, then your people.</span>}
+      </summary>
+      <ul className="divide-y divide-slate-100 border-t border-slate-100">
+        {[...units, null].map((u) => (
+          <li key={u?.id ?? "new"}>
+            <form action={saveUnit} className="grid gap-3 px-4 py-3 sm:grid-cols-12 sm:items-end">
+              {u && <input type="hidden" name="id" value={u.id} />}
+              <label className="sm:col-span-5">
+                <span className={field}>{u ? "Unit name" : "New unit name"}</span>
+                <input name="name" required minLength={2} maxLength={120} defaultValue={u?.name ?? ""} placeholder="e.g. Cards" className={inputCls} />
+              </label>
+              <label className="sm:col-span-3">
+                <span className={field}>Code</span>
+                <input name="code" required maxLength={20} defaultValue={u?.code ?? ""} placeholder="e.g. CARDS" className={`${inputCls} uppercase`} />
+              </label>
+              <label className="sm:col-span-2">
+                <span className={field}>Status</span>
+                <select name="is_active" defaultValue={u && !u.is_active ? "false" : "true"} className={inputCls}>
+                  <option value="true">Active</option>
+                  <option value="false">Inactive</option>
+                </select>
+              </label>
+              <div className="sm:col-span-2 sm:flex sm:justify-end">
+                <SubmitButton variant={u ? "secondary" : undefined} pendingText="Saving…">
+                  {u ? "Save" : "Add unit"}
+                </SubmitButton>
+              </div>
+            </form>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }

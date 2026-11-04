@@ -220,3 +220,24 @@ export async function updateProfile(formData: FormData) {
   revalidatePath("/", "layout");
   back("/admin", { saved: id });
 }
+
+// ---------- Units ----------
+export async function saveUnit(formData: FormData) {
+  const id = str(formData, "id");
+  const name = str(formData, "name").slice(0, 120);
+  const code = str(formData, "code").slice(0, 20).toUpperCase();
+  if (name.length < 2) back("/admin", { error: "Enter the unit's name." });
+  if (!code) back("/admin", { error: "Enter a short code for the unit, e.g. CARDS." });
+
+  const supabase = createClient();
+  const row = { name, code, is_active: str(formData, "is_active") !== "false" };
+  const { error } = UUID.test(id)
+    ? await supabase.from("units").update(row).eq("id", id)
+    : await supabase.from("units").insert(row);
+  if (error) {
+    back("/admin", { error: error.code === "23505" ? "A unit with that name or code already exists." : error.message });
+  }
+
+  revalidatePath("/", "layout");
+  back("/admin", { unit: name });
+}
