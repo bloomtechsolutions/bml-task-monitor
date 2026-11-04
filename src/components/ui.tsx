@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { AlertTriangle, CheckCircle2, Circle, CircleDot, Ban, OctagonAlert } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Circle, CircleDot, Ban, OctagonAlert, Hourglass } from "lucide-react";
 import type { Enums } from "@/lib/database.types";
 import { STATUS_LABEL, PRIORITY_LABEL } from "@/lib/format";
 
@@ -8,6 +8,7 @@ const STATUS_STYLE: Record<Enums<"task_status">, string> = {
   not_started: "bg-slate-100 text-slate-700 ring-slate-200",
   in_progress: "bg-sky-50 text-sky-800 ring-sky-200",
   blocked: "bg-amber-50 text-amber-900 ring-amber-300",
+  submitted: "bg-violet-50 text-violet-800 ring-violet-200",
   done: "bg-emerald-50 text-emerald-800 ring-emerald-200",
   cancelled: "bg-slate-50 text-slate-500 ring-slate-200",
 };
@@ -16,6 +17,7 @@ const STATUS_ICON: Record<Enums<"task_status">, typeof Circle> = {
   not_started: Circle,
   in_progress: CircleDot,
   blocked: OctagonAlert,
+  submitted: Hourglass,
   done: CheckCircle2,
   cancelled: Ban,
 };

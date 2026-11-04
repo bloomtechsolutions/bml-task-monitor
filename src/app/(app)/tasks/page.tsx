@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { getPerson } from "@/lib/auth";
-import { WhoAreYou } from "@/components/who-are-you";
+import { requirePerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { addDays, todayMV } from "@/lib/format";
 import { PageHeader, EmptyState, ButtonLink, Notice } from "@/components/ui";
@@ -12,8 +11,9 @@ type View = "mine" | "assigned";
 function groupTasks(tasks: TaskRow[]) {
   const today = todayMV();
   const weekEnd = addDays(today, 7);
-  const open = tasks.filter((t) => t.status !== "done" && t.status !== "cancelled");
+  const open = tasks.filter((t) => t.status !== "done" && t.status !== "cancelled" && t.status !== "submitted");
   return {
+    submitted: tasks.filter((t) => t.status === "submitted"),
     overdue: open.filter((t) => t.is_overdue),
     blocked: open.filter((t) => !t.is_overdue && t.status === "blocked"),
     thisWeek: open.filter((t) => !t.is_overdue && t.status !== "blocked" && (t.due_date ?? "") <= weekEnd),
@@ -25,11 +25,9 @@ function groupTasks(tasks: TaskRow[]) {
 export const metadata = { title: "My tasks · Task Monitor" };
 
 export default async function MyTasksPage({ searchParams }: { searchParams: Promise<{ view?: string; q?: string }> }) {
-  const person = await getPerson();
+  const person = await requirePerson();
   const sp = await searchParams;
   const supabase = createClient();
-
-  if (!person) return <WhoAreYou purpose="to see your tasks" />;
 
   const view: View = sp.view === "assigned" ? "assigned" : "mine";
   const q = (sp.q ?? "").trim().slice(0, 80);
@@ -53,7 +51,7 @@ export default async function MyTasksPage({ searchParams }: { searchParams: Prom
   const { data, error } = await query;
   const tasks = data ?? [];
   const g = groupTasks(tasks);
-  const openCount = tasks.length - g.done.length;
+  const openCount = tasks.length - g.done.length - g.submitted.length;
   const showPerson = view === "mine" ? "assigner" : "assignee";
   const firstName = person.full_name?.split(" ")[0];
 
@@ -119,6 +117,7 @@ export default async function MyTasksPage({ searchParams }: { searchParams: Prom
       ) : (
         <>
           <TaskGroup title="Overdue" tasks={g.overdue} showPerson={showPerson} tone="danger" />
+          <TaskGroup title={view === "mine" ? "Waiting for sign-off" : "Waiting for your sign-off"} tasks={g.submitted} showPerson={showPerson} tone={view === "mine" ? "default" : "accent"} />
           <TaskGroup title="Blocked" tasks={g.blocked} showPerson={showPerson} />
           <TaskGroup title="Due in the next 7 days" tasks={g.thisWeek} showPerson={showPerson} />
           <TaskGroup title="Later" tasks={g.later} showPerson={showPerson} />

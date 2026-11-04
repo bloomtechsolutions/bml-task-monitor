@@ -13,12 +13,12 @@ import {
   SquareArrowOutUpRight,
   Users,
 } from "lucide-react";
-import { getPerson } from "@/lib/auth";
+import { requirePerson } from "@/lib/auth";
+import { scopedOr } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { addDays, todayMV } from "@/lib/format";
 import { Notice } from "@/components/ui";
 import { TaskListItem, type TaskRow } from "@/components/task-row";
-import { WhoAreYou } from "@/components/who-are-you";
 
 const TZ = "Indian/Maldives";
 
@@ -83,8 +83,7 @@ function QuickLink({ href, icon: Icon, title, body, tone }: { href: string; icon
 const rank = (t: TaskRow) => (t.is_overdue ? 0 : t.status === "blocked" ? 1 : t.priority === "urgent" ? 2 : t.priority === "high" ? 3 : 4);
 
 export default async function DashboardPage() {
-  const person = await getPerson();
-  if (!person) return <WhoAreYou purpose="to see your dashboard" />;
+  const person = await requirePerson();
 
   const supabase = createClient();
   const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
@@ -97,12 +96,13 @@ export default async function DashboardPage() {
       .or(`status.neq.done,completed_at.gte.${since}`)
       .order("due_date")
       .limit(500),
+    // Work I follow up on: tasks I assigned, plus (for managers/head) anything in scope waiting for sign-off.
     supabase
       .from("task_overview")
       .select("*")
-      .eq("assigned_by", person.id)
       .neq("assignee_id", person.id)
-      .in("status", ["not_started", "in_progress", "blocked"])
+      .in("status", ["not_started", "in_progress", "blocked", "submitted"])
+      .or(scopedOr(person, `assigned_by.eq.${person.id},status.eq.submitted`) ?? `assigned_by.eq.${person.id},status.eq.submitted`)
       .order("due_date")
       .limit(500),
     person.unit_id
@@ -112,7 +112,7 @@ export default async function DashboardPage() {
 
   const weekEnd = addDays(todayMV(), 7);
   const tasks = mine ?? [];
-  const open = tasks.filter((t) => t.status !== "done");
+  const open = tasks.filter((t) => t.status !== "done" && t.status !== "submitted");
   const overdue = open.filter((t) => t.is_overdue);
   const dueWeek = open.filter((t) => !t.is_overdue && (t.due_date ?? "") <= weekEnd);
   const done30 = tasks.filter((t) => t.status === "done");
@@ -122,7 +122,8 @@ export default async function DashboardPage() {
     .sort((a, b) => rank(a) - rank(b) || (a.due_date ?? "").localeCompare(b.due_date ?? ""))
     .slice(0, 6);
 
-  const waiting = (delegated ?? []).filter((t) => t.is_overdue || t.status === "blocked");
+  const awaiting = (delegated ?? []).filter((t) => t.status === "submitted");
+  const waiting = [...awaiting, ...(delegated ?? []).filter((t) => t.assigned_by === person.id && (t.is_overdue || t.status === "blocked"))];
   const firstName = person.full_name?.split(" ")[0] ?? "there";
 
   return (
@@ -219,11 +220,13 @@ export default async function DashboardPage() {
                 <h2 id="waiting-h" className="text-[17px] font-semibold text-slate-900">
                   Needs your follow-up <span className="ml-1 font-normal tabular-nums text-slate-500">{waiting.length}</span>
                 </h2>
-                <Link href="/tasks?view=assigned" className="text-sm font-medium text-blue-700 hover:underline">
+                <Link href={awaiting.length ? "/board" : "/tasks?view=assigned"} className="text-sm font-medium text-blue-700 hover:underline">
                   See all
                 </Link>
               </div>
-              <p className="-mt-1 px-6 pb-3 text-sm text-slate-500">Tasks you assigned that are overdue or blocked</p>
+              <p className="-mt-1 px-6 pb-3 text-sm text-slate-500">
+                {awaiting.length ? `${awaiting.length} waiting for your sign-off · ` : ""}overdue or blocked work you assigned
+              </p>
               <ul className="divide-y divide-slate-100 border-t border-slate-100">
                 {waiting.slice(0, 4).map((t) => (
                   <TaskListItem key={t.id} task={t} showPerson="assignee" compact />
@@ -238,7 +241,7 @@ export default async function DashboardPage() {
               <p className="font-medium text-slate-900">Nothing waiting on others</p>
               <p className="mt-1 text-sm text-slate-500">
                 {(delegated ?? []).length
-                  ? `${delegated!.length} task${delegated!.length === 1 ? "" : "s"} you assigned ${delegated!.length === 1 ? "is" : "are"} on track.`
+                  ? `${delegated!.length} task${delegated!.length === 1 ? "" : "s"} you follow ${delegated!.length === 1 ? "is" : "are"} on track.`
                   : "Tasks you assign will be tracked here."}
               </p>
             </section>

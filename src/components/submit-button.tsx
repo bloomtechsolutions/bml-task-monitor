@@ -10,6 +10,7 @@ export function SubmitButton({
   confirmMessage,
   name,
   value,
+  full = false,
 }: {
   children: ReactNode;
   pendingText?: string;
@@ -17,6 +18,7 @@ export function SubmitButton({
   confirmMessage?: string;
   name?: string;
   value?: string;
+  full?: boolean;
 }) {
   const { pending } = useFormStatus();
   const cls = {
@@ -34,7 +36,7 @@ export function SubmitButton({
       onClick={(e) => {
         if (confirmMessage && !window.confirm(confirmMessage)) e.preventDefault();
       }}
-      className={`inline-flex min-h-10 items-center justify-center rounded-lg px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60 ${cls}`}
+      className={`${full ? "w-full " : ""}inline-flex min-h-10 items-center justify-center rounded-lg px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60 ${cls}`}
     >
       {pending ? pendingText : children}
     </button>

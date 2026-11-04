@@ -9,8 +9,18 @@ import { inputCls, labelCls } from "@/components/ui";
 
 const CHOICES: Enums<"task_status">[] = ["not_started", "in_progress", "blocked", "done"];
 
-export function ProgressForm({ taskId, status, progress }: { taskId: string; status: Enums<"task_status">; progress: number }) {
-  const [s, setS] = useState(status);
+export function ProgressForm({
+  taskId,
+  status,
+  progress,
+  needsSignOff = false,
+}: {
+  taskId: string;
+  status: Enums<"task_status">;
+  progress: number;
+  needsSignOff?: boolean;
+}) {
+  const [s, setS] = useState<Enums<"task_status">>(status === "submitted" ? "done" : status);
   const [p, setP] = useState(progress);
   const effectiveProgress = s === "done" ? 100 : p;
 
@@ -29,7 +39,7 @@ export function ProgressForm({ taskId, status, progress }: { taskId: string; sta
               }`}
             >
               <input type="radio" name="status" value={c} checked={s === c} onChange={() => setS(c)} className="sr-only" />
-              {STATUS_LABEL[c]}
+              {c === "done" && needsSignOff ? "Done – submit" : STATUS_LABEL[c]}
             </label>
           ))}
         </div>
@@ -70,8 +80,13 @@ export function ProgressForm({ taskId, status, progress }: { taskId: string; sta
         />
       </div>
 
+      {s === "done" && needsSignOff && status !== "submitted" && (
+        <p className="text-sm text-slate-600">This task needs sign-off. It will go to the person who assigned it for approval.</p>
+      )}
       <div className="flex justify-end">
-        <SubmitButton pendingText="Saving update…">{s === "done" && status !== "done" ? "Mark as done" : "Save update"}</SubmitButton>
+        <SubmitButton pendingText="Saving update…">
+          {s === "done" && status !== "done" && status !== "submitted" ? (needsSignOff ? "Submit for sign-off" : "Mark as done") : "Save update"}
+        </SubmitButton>
       </div>
     </form>
   );

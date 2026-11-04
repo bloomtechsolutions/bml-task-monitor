@@ -1,12 +1,14 @@
-import { getPerson } from "@/lib/auth";
+import { requirePerson } from "@/lib/auth";
+import { isHead } from "@/lib/permissions";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ROLE_LABEL } from "@/lib/format";
 import { USER_ROLES, type Tables } from "@/lib/database.types";
-import { addPerson, saveUnit, updateProfile } from "@/app/actions";
+import { addPerson, saveUnit, setTempPassword, updateProfile } from "@/app/actions";
 import { PageHeader, Notice, EmptyState, inputCls } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 
-type Unit = { id: string; name: string; code: string; is_active: boolean };
+type Unit = { id: string; name: string; code: string; is_active: boolean; manager_id?: string | null };
 
 function PersonFields({ p, units }: { p?: Tables<"profiles">; units: Unit[] }) {
   const field = "mb-1 block text-xs font-medium text-slate-600";
@@ -18,7 +20,7 @@ function PersonFields({ p, units }: { p?: Tables<"profiles">; units: Unit[] }) {
       </label>
       <label className="sm:col-span-2">
         <span className={field}>Staff no.</span>
-        <input name="staff_no" defaultValue={p?.staff_no ?? ""} inputMode="numeric" className={inputCls} />
+        <input name="staff_no" required defaultValue={p?.staff_no ?? ""} inputMode="numeric" className={inputCls} />
       </label>
       <label className="sm:col-span-3">
         <span className={field}>Designation</span>
@@ -55,15 +57,18 @@ function PersonFields({ p, units }: { p?: Tables<"profiles">; units: Unit[] }) {
   );
 }
 
-export default async function AdminPage({ searchParams }: { searchParams: Promise<{ saved?: string; unit?: string; error?: string; q?: string }> }) {
+export default async function AdminPage({ searchParams }: { searchParams: Promise<{ saved?: string; unit?: string; error?: string; q?: string; pw?: string }> }) {
   const sp = await searchParams;
   const q = (sp.q ?? "").trim().toLowerCase();
   const supabase = createClient();
-  const [person, { data: units }, { data: profiles, error }] = await Promise.all([
-    getPerson(),
-    supabase.from("units").select("id, name, code, is_active").order("name"),
+  const person = await requirePerson();
+  if (!isHead(person)) redirect("/");
+  const [{ data: units }, { data: profiles, error }, { data: auth }] = await Promise.all([
+    supabase.from("units").select("id, name, code, is_active, manager_id").order("name"),
     supabase.from("profiles").select("*").order("full_name"),
+    supabase.rpc("auth_status"),
   ]);
+  const authById = new Map((auth ?? []).map((a) => [a.profile_id, a]));
 
   const list = (profiles ?? []).filter(
     (p) => !q || (p.full_name ?? "").toLowerCase().includes(q) || (p.email ?? "").toLowerCase().includes(q) || (p.staff_no ?? "").includes(q),
@@ -72,18 +77,28 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
   return (
     <>
-      <PageHeader title="People" subtitle="Everyone who can be assigned tasks. Anyone with the link can edit this list." />
+      <PageHeader title="People & units" subtitle="Who can sign in, their unit and role. Only the Head of Retail can change this page." />
       {sp.error && <Notice tone="error">{sp.error}</Notice>}
       {saved && <Notice tone="success">Saved {saved.full_name}.</Notice>}
       {sp.unit && <Notice tone="success">Saved unit {sp.unit}.</Notice>}
+      {sp.pw && (
+        <Notice tone="success">
+          Temporary password set for {(profiles ?? []).find((p) => p.id === sp.pw)?.full_name ?? "that person"}. Give it to them in person; they&apos;ll
+          choose their own when they first sign in.
+        </Notice>
+      )}
 
-      <UnitsSection units={units ?? []} />
+      <UnitsSection units={units ?? []} people={(profiles ?? []).filter((p) => p.is_active)} />
       {error && <Notice tone="error">Couldn&apos;t load people.</Notice>}
 
       <details className="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs" open={(profiles ?? []).length <= 1}>
         <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-900">+ Add a person</summary>
         <form action={addPerson} className="grid gap-3 border-t border-slate-100 p-4 sm:grid-cols-12 sm:items-end">
           <PersonFields units={units ?? []} />
+          <label className="sm:col-span-4">
+            <span className="mb-1 block text-xs font-medium text-slate-600">Temporary password</span>
+            <input name="temp_password" type="text" minLength={8} autoComplete="off" placeholder="8+ characters" className={inputCls} />
+          </label>
           <div className="sm:col-span-12 sm:flex sm:justify-end">
             <SubmitButton pendingText="Adding…">Add person</SubmitButton>
           </div>
@@ -113,6 +128,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                       <span className="font-medium text-slate-900">{p.full_name ?? "Unnamed"}</span>
                       {p.id === person?.id && <span className="ml-2 rounded bg-blue-600 px-1.5 py-0.5 text-xs text-white">You</span>}
                       {!p.is_active && <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-xs text-slate-700">Inactive</span>}
+                      {p.is_active && !authById.get(p.id)?.has_password && (
+                        <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-900">Can&apos;t sign in yet</span>
+                      )}
+                      {authById.get(p.id)?.must_change && <span className="ml-2 rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-900">Temporary password</span>}
+                      {authById.get(p.id)?.locked && <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-800">Locked</span>}
                       <span className="block text-xs text-slate-500">
                         {[ROLE_LABEL[p.role], (units ?? []).find((u) => u.id === p.unit_id)?.name, p.staff_no].filter(Boolean).join(" · ")}
                       </span>
@@ -133,6 +153,18 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                       <SubmitButton variant="secondary">Save {p.full_name?.split(" ")[0] ?? "person"}</SubmitButton>
                     </div>
                   </form>
+                  <form action={setTempPassword} className="flex flex-col gap-2 border-t border-slate-100 px-4 py-3 sm:flex-row sm:items-end">
+                    <input type="hidden" name="id" value={p.id} />
+                    <label className="flex-1">
+                      <span className="mb-1 block text-xs font-medium text-slate-600">
+                        {authById.get(p.id)?.has_password ? "Reset password (also unlocks the account)" : "Set a temporary password so they can sign in"}
+                      </span>
+                      <input name="temp_password" type="text" required minLength={8} autoComplete="off" placeholder="8+ characters" className={inputCls} />
+                    </label>
+                    <SubmitButton variant="secondary" pendingText="Setting…">
+                      Set temporary password
+                    </SubmitButton>
+                  </form>
                 </details>
               </li>
             ))}
@@ -143,7 +175,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   );
 }
 
-function UnitsSection({ units }: { units: Unit[] }) {
+function UnitsSection({ units, people }: { units: Unit[]; people: Tables<"profiles">[] }) {
   const field = "mb-1 block text-xs font-medium text-slate-600";
   return (
     <details className="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs" open={units.length === 0}>
@@ -156,13 +188,24 @@ function UnitsSection({ units }: { units: Unit[] }) {
           <li key={u?.id ?? "new"}>
             <form action={saveUnit} className="grid gap-3 px-4 py-3 sm:grid-cols-12 sm:items-end">
               {u && <input type="hidden" name="id" value={u.id} />}
-              <label className="sm:col-span-5">
+              <label className="sm:col-span-4">
                 <span className={field}>{u ? "Unit name" : "New unit name"}</span>
                 <input name="name" required minLength={2} maxLength={120} defaultValue={u?.name ?? ""} placeholder="e.g. Cards" className={inputCls} />
               </label>
-              <label className="sm:col-span-3">
+              <label className="sm:col-span-2">
                 <span className={field}>Code</span>
                 <input name="code" required maxLength={20} defaultValue={u?.code ?? ""} placeholder="e.g. CARDS" className={`${inputCls} uppercase`} />
+              </label>
+              <label className="sm:col-span-2">
+                <span className={field}>Manager</span>
+                <select name="manager_id" defaultValue={u?.manager_id ?? ""} className={inputCls}>
+                  <option value="">—</option>
+                  {people.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.full_name}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="sm:col-span-2">
                 <span className={field}>Status</span>

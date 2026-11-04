@@ -40,7 +40,7 @@ export function formatDateTime(iso: string): string {
 /** Human due label relative to today, e.g. "Due today", "3 days overdue". */
 export function dueLabel(dueDate: string | null, status: Enums<"task_status"> | null): string {
   if (!dueDate) return "No due date";
-  if (status === "done") return `Due ${formatDate(dueDate)}`;
+  if (status === "done" || status === "submitted") return `Due ${formatDate(dueDate)}`;
   const diff = daysBetween(todayMV(), dueDate);
   if (diff < 0) return `${-diff} day${diff === -1 ? "" : "s"} overdue`;
   if (diff === 0) return "Due today";
@@ -53,6 +53,7 @@ export const STATUS_LABEL: Record<Enums<"task_status">, string> = {
   not_started: "Not started",
   in_progress: "In progress",
   blocked: "Blocked",
+  submitted: "Awaiting sign-off",
   done: "Done",
   cancelled: "Cancelled",
 };

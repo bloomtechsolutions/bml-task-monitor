@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, GitBranch } from "lucide-react";
+import { ChevronRight, GitBranch, ListChecks, Paperclip } from "lucide-react";
 import type { Tables } from "@/lib/database.types";
 import { dueLabel } from "@/lib/format";
 import { StatusBadge, PriorityTag, DueText, ProgressBar } from "@/components/ui";
@@ -30,6 +30,18 @@ export function TaskListItem({ task, showPerson, compact = false }: { task: Task
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <p className="truncate font-medium text-slate-900">{task.title}</p>
+            {(task.checklist_total ?? 0) > 0 && (
+              <span className="inline-flex items-center gap-0.5 text-xs tabular-nums text-slate-500">
+                <ListChecks aria-hidden className="size-3" />
+                {task.checklist_done}/{task.checklist_total}
+              </span>
+            )}
+            {(task.attachment_count ?? 0) > 0 && (
+              <span className="inline-flex items-center gap-0.5 text-xs tabular-nums text-slate-500">
+                <Paperclip aria-hidden className="size-3" />
+                {task.attachment_count}
+              </span>
+            )}
             {(task.subtask_count ?? 0) > 0 && (
               <span className="inline-flex items-center gap-0.5 text-xs text-slate-500">
                 <GitBranch aria-hidden className="size-3" />
@@ -64,14 +76,14 @@ export function TaskGroup({
   title: string;
   tasks: TaskRow[];
   showPerson?: "assignee" | "assigner" | "both";
-  tone?: "default" | "danger";
+  tone?: "default" | "danger" | "accent";
   collapsed?: boolean;
 }) {
   if (tasks.length === 0) return null;
   return (
     <details open={!collapsed} className="group/section mb-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs">
       <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-2.5 select-none [&::-webkit-details-marker]:hidden">
-        <h2 className={`text-sm font-semibold ${tone === "danger" ? "text-red-800" : "text-slate-800"}`}>
+        <h2 className={`text-sm font-semibold ${tone === "danger" ? "text-red-800" : tone === "accent" ? "text-violet-800" : "text-slate-800"}`}>
           {title} <span className="ml-1 font-normal tabular-nums text-slate-500">{tasks.length}</span>
         </h2>
         <ChevronRight aria-hidden className="size-4 text-slate-400 transition-transform group-open/section:rotate-90" />

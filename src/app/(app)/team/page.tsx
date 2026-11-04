@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { requirePerson } from "@/lib/auth";
+import { isLead, unitScope } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { addDays, todayMV } from "@/lib/format";
 import { PageHeader, EmptyState, Notice } from "@/components/ui";
@@ -13,7 +16,7 @@ function tally(tasks: TaskRow[], weekEnd: string): Counts {
     if (t.status === "done") {
       c.done30++;
       if (t.completed_at && t.due_date && t.completed_at.slice(0, 10) <= t.due_date) c.onTime30++;
-    } else if (t.status !== "cancelled") {
+    } else if (t.status !== "cancelled" && t.status !== "submitted") {
       c.open++;
       if (t.is_overdue) c.overdue++;
       if (t.status === "blocked") c.blocked++;
@@ -34,22 +37,31 @@ function Metric({ label, value, tone }: { label: string; value: string | number;
 }
 
 export default async function TeamPage({ searchParams }: { searchParams: Promise<{ unit?: string }> }) {
-  const { unit: unitFilter } = await searchParams;
+  const [{ unit: requestedUnit }, me] = await Promise.all([searchParams, requirePerson()]);
+  if (!isLead(me)) redirect("/");
+  const myUnit = unitScope(me);
+  const unitFilter = myUnit ?? requestedUnit;
 
   const supabase = createClient();
   const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
-  const [{ data: units }, { data: rows, error }] = await Promise.all([
+  const today = todayMV();
+  let tq = supabase.from("task_overview").select("*");
+  if (myUnit) tq = tq.eq("unit_id", myUnit);
+  const [{ data: allUnits }, { data: rows, error }, { data: leave }, { data: settings }] = await Promise.all([
     supabase.from("units").select("id, name, code").eq("is_active", true).order("name"),
-    supabase
-      .from("task_overview")
-      .select("*")
+    tq
       .neq("status", "cancelled")
       .or(`status.neq.done,completed_at.gte.${since}`)
       .order("due_date")
       .limit(2000),
+    supabase.from("leave").select("profile_id, start_date, end_date").lte("start_date", addDays(today, 7)).gte("end_date", today),
+    supabase.from("app_settings").select("value").eq("key", "overload_threshold").maybeSingle(),
   ]);
+  const units = (allUnits ?? []).filter((u) => !myUnit || u.id === myUnit);
+  const overload = Number(settings?.value ?? 8);
+  const leaveOf = (id: string) => (leave ?? []).find((l) => l.profile_id === id);
 
-  const weekEnd = addDays(todayMV(), 7);
+  const weekEnd = addDays(today, 7);
   const visibleUnits = units ?? [];
   const selectedUnit = visibleUnits.find((u) => u.id === unitFilter) ?? null;
   const all = (rows ?? []).filter((t) => !selectedUnit || t.unit_id === selectedUnit.id);
@@ -68,7 +80,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
     .map(([id, p]) => ({ id, ...p, c: tally(p.tasks, weekEnd) }))
     .sort((a, b) => b.c.overdue - a.c.overdue || b.c.open - a.c.open);
 
-  const open = all.filter((t) => t.status !== "done");
+  const open = all.filter((t) => t.status !== "done" && t.status !== "submitted");
   const overdue = open.filter((t) => t.is_overdue).sort((a, b) => (b.days_overdue ?? 0) - (a.days_overdue ?? 0));
   const blocked = open.filter((t) => t.status === "blocked" && !t.is_overdue);
   const unitStats = !selectedUnit
@@ -82,7 +94,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
         subtitle="Open work, overdue items and completion over the last 30 days."
       />
 
-      {visibleUnits.length > 0 && (
+      {visibleUnits.length > 0 && !myUnit && (
         <nav aria-label="Filter by unit" className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1">
           {[{ id: "", name: "All units" }, ...visibleUnits].map((u) => {
             const active = (selectedUnit?.id ?? "") === u.id;
@@ -177,8 +189,16 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
                         <td className="px-4 py-2.5">
                           <span className="font-medium text-slate-900">{p.name}</span>
                           {!selectedUnit && <span className="ml-1.5 text-xs text-slate-400">{p.unit}</span>}
+                          {leaveOf(p.id) && (
+                            <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] text-amber-900">
+                              {leaveOf(p.id)!.start_date <= today ? "On leave" : "Leave soon"}
+                            </span>
+                          )}
                         </td>
-                        <td className="px-2 py-2.5 text-right tabular-nums">{p.c.open}</td>
+                        <td className={`px-2 py-2.5 text-right tabular-nums ${p.c.open >= overload ? "font-semibold text-orange-700" : ""}`}>
+                          {p.c.open}
+                          {p.c.open >= overload && <span className="sr-only"> (overloaded)</span>}
+                        </td>
                         <td className={`px-2 py-2.5 text-right tabular-nums ${p.c.overdue ? "font-semibold text-red-700" : "text-slate-500"}`}>{p.c.overdue}</td>
                         <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">{p.c.done30}</td>
                       </tr>

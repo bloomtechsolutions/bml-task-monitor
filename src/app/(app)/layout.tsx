@@ -1,18 +1,19 @@
-import { getPerson } from "@/lib/auth";
+import { requirePerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/app-shell";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const [person, { data: people }] = await Promise.all([
-    getPerson(),
-    createClient().from("profiles").select("id, full_name").eq("is_active", true).order("full_name"),
-  ]);
-  const options = (people ?? []).map((p) => ({ id: p.id, name: p.full_name ?? "Unnamed" }));
+  const me = await requirePerson();
+  const { count } = await createClient()
+    .from("notifications")
+    .select("id", { count: "exact", head: true })
+    .eq("recipient_id", me.id)
+    .is("read_at", null);
 
   return (
     <AppShell
-      people={options}
-      person={person ? { id: person.id, name: person.full_name ?? "Unnamed", subtitle: person.designation } : null}
+      unread={count ?? 0}
+      person={{ id: me.id, name: me.full_name ?? "Unnamed", subtitle: me.designation, role: me.role }}
     >
       {children}
     </AppShell>
