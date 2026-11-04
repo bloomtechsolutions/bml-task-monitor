@@ -7,10 +7,11 @@ import type { Profile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { taskScope } from "@/lib/permissions";
 import { addDays, dueLabel, formatDate, todayMV, PRIORITY_LABEL } from "@/lib/format";
+import { StatusBadge } from "@/components/ui";
 import type { Enums, Json, Tables } from "@/lib/database.types";
 
 type Task = Tables<"task_overview">;
-type Feed = "important" | "done" | "problems" | "all";
+type Feed = "all" | "new" | "problems" | "done";
 type Item = {
   key: string; at: string; actor: string; icon: LucideIcon; tone: string; verb: React.ReactNode; task: Task;
   note?: string | null; cat: ("important" | "done" | "problems")[];
@@ -19,13 +20,6 @@ type Item = {
 const TZ = "Indian/Maldives";
 const PENDING = new Set(["not_started", "in_progress", "blocked", "submitted"]);
 const mvDay = (iso: string | null) => (iso ? new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(iso)) : null);
-const time = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: TZ });
-
-function dayLabel(key: string, today: string) {
-  if (key === today) return "Today";
-  if (key === addDays(today, -1)) return "Yesterday";
-  return new Date(`${key}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "short", timeZone: "UTC" });
-}
 
 function ago(iso: string | null): string {
   if (!iso) return "";
@@ -119,7 +113,6 @@ export async function LeaderDashboard({ me, unitName, feed: feedParam }: { me: P
   const newlyOverdue = overdue.filter((t) => inRange(t.due_date, w0, addDays(today, -1))).length;
   const blocked = pending.filter((t) => t.status === "blocked");
   const awaiting = pending.filter((t) => t.status === "submitted").sort((a, b) => (a.submitted_at ?? "").localeCompare(b.submitted_at ?? ""));
-  const slipped = (updates ?? []).filter((u) => tasks.has(u.task_id) && u.new_due_date && u.old_due_date && u.new_due_date > u.old_due_date && inRange(mvDay(u.created_at), w0, today));
 
   // ---- Activity feed ----
   const items: Item[] = [];
@@ -174,16 +167,35 @@ export async function LeaderDashboard({ me, unitName, feed: feedParam }: { me: P
   }
   items.sort((a, b) => b.at.localeCompare(a.at));
 
-  const feed: Feed = feedParam === "done" || feedParam === "problems" || feedParam === "all" ? feedParam : "important";
-  const counts = { important: 0, done: 0, problems: 0, all: items.length };
-  for (const i of items) for (const c of i.cat) counts[c]++;
-  const shown = items.filter((i) => feed === "all" || i.cat.includes(feed)).slice(0, 60);
-  const days: { key: string; items: Item[] }[] = [];
-  for (const it of shown) {
-    const k = mvDay(it.at)!;
-    if (days.at(-1)?.key !== k) days.push({ key: k, items: [] });
-    days.at(-1)!.items.push(it);
+  // One row per task: its latest change, newest first (no duplicates).
+  const latest = new Map<string, Item>();
+  for (const it of items) if (it.task.id && !latest.has(it.task.id)) latest.set(it.task.id, it);
+  const since = addDays(today, -13);
+  // Also every open task (and anything finished recently) even if nobody has touched it in 14 days.
+  for (const t of all) {
+    if (!t.id || latest.has(t.id)) continue;
+    const open = PENDING.has(t.status ?? "");
+    const recentDone = t.status === "done" && (finished(t) ?? "") >= since;
+    if (!open && !recentDone) continue;
+    latest.set(t.id, {
+      key: `t${t.id}`, at: t.updated_at ?? t.created_at ?? new Date(0).toISOString(), actor: "", task: t, cat: [],
+      icon: Clock, tone: "bg-slate-100 text-slate-500", verb: <>No updates yet</>,
+    });
   }
+  const rows = [...latest.values()].sort((a, b) => b.at.localeCompare(a.at));
+  const isNew = (t: Task) => (mvDay(t.created_at) ?? "") >= since;
+  const isProblem = (r: Item) => !!r.task.is_overdue || r.task.status === "blocked" || r.cat.includes("problems");
+  const isDone = (t: Task) => t.status === "done";
+  const feed: Feed = feedParam === "new" || feedParam === "problems" || feedParam === "done" ? feedParam : "all";
+  const counts = {
+    all: rows.length,
+    new: rows.filter((r) => isNew(r.task)).length,
+    problems: rows.filter(isProblem).length,
+    done: rows.filter((r) => isDone(r.task)).length,
+  };
+  const shown = rows
+    .filter((r) => feed === "all" || (feed === "new" ? isNew(r.task) : feed === "problems" ? isProblem(r) : isDone(r.task)))
+    .slice(0, 40);
 
   // ---- Needs attention ----
   const attention = [
@@ -257,20 +269,20 @@ export async function LeaderDashboard({ me, unitName, feed: feedParam }: { me: P
         <Card
           id="feed-h"
           title="What's happening"
-          action={<span className="text-xs text-slate-500">Last 14 days{onTimePct !== null ? ` · ${onTimePct}% finished on time this week` : ""}{slipped.length ? ` · ${slipped.length} due date${slipped.length === 1 ? "" : "s"} pushed back` : ""}</span>}
+          action={<span className="text-xs text-slate-500">Open tasks and recent changes, newest first{onTimePct !== null ? ` · ${onTimePct}% finished on time this week` : ""}</span>}
         >
-          <nav aria-label="Filter activity" className="flex flex-wrap gap-1.5 px-5 pb-3">
+          <nav aria-label="Filter tasks" className="flex flex-wrap gap-1.5 px-5 pb-3">
             {(
               [
-                ["important", "Important"],
+                ["all", "All"],
+                ["new", "New"],
                 ["problems", "Problems"],
                 ["done", "Completed"],
-                ["all", "Everything"],
               ] as const
             ).map(([f, label]) => (
               <Link
                 key={f}
-                href={f === "important" ? "/" : `/?feed=${f}`}
+                href={f === "all" ? "/" : `/?feed=${f}`}
                 scroll={false}
                 aria-current={feed === f ? "true" : undefined}
                 className={`rounded-full px-3 py-1 text-sm font-medium ${feed === f ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
@@ -281,38 +293,43 @@ export async function LeaderDashboard({ me, unitName, feed: feedParam }: { me: P
           </nav>
           {shown.length === 0 ? (
             <p className="border-t border-slate-100 px-5 py-10 text-center text-sm text-slate-500">
-              {feed === "problems" ? "No problems reported in the last 14 days." : "No activity in the last 14 days yet."}
+              {feed === "problems" ? "No problems right now." : "No task activity in the last 14 days yet."}
             </p>
           ) : (
-            <div className="space-y-4 border-t border-slate-100 px-5 py-4">
-              {days.map((day) => (
-                <section key={day.key} aria-label={dayLabel(day.key, today)}>
-                  <h3 className="mb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">{dayLabel(day.key, today)}</h3>
-                  <ol className="relative ml-3.5 border-l border-slate-200">
-                    {day.items.map((it) => {
-                      const Icon = it.icon;
-                      return (
-                        <li key={it.key} className="relative pb-3.5 pl-6 last:pb-0">
-                          <span aria-hidden className={`absolute top-0 -left-3.5 grid size-7 place-items-center rounded-full ring-4 ring-white ${it.tone}`}>
-                            <Icon className="size-3.5" />
+            <ul className="divide-y divide-slate-100 border-t border-slate-100">
+              {shown.map((r) => {
+                const t = r.task;
+                const Icon = r.icon;
+                return (
+                  <li key={t.id}>
+                    <Link href={`/tasks/${t.id}`} className="group flex flex-col gap-2 px-5 py-3 hover:bg-slate-50 sm:flex-row sm:items-start sm:gap-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[15px] font-medium text-slate-900 group-hover:text-blue-700">{t.title}</p>
+                        <p className="mt-0.5 truncate text-xs text-slate-500">
+                          {t.assignee_name} · {t.unit_code} · created {formatDate(mvDay(t.created_at))}
+                        </p>
+                        <p className="mt-1.5 flex items-center gap-1.5 text-sm text-slate-600">
+                          <span aria-hidden className={`grid size-5 shrink-0 place-items-center rounded-full ${r.tone}`}>
+                            <Icon className="size-3" />
                           </span>
-                          <Link href={`/tasks/${it.task.id}`} className="block pt-0.5 text-[15px] font-medium leading-snug text-slate-900 hover:text-blue-700">
-                            {it.task.title}
-                          </Link>
-                          <p className="mt-0.5 text-sm leading-snug text-slate-600">
-                            <span className="font-medium text-slate-800">{it.actor}</span> {it.verb}
-                            <span className="ml-1.5 text-xs whitespace-nowrap text-slate-400">
-                              {it.task.unit_code} · {time(it.at)}
-                            </span>
-                          </p>
-                          {it.note && <p className="mt-1 line-clamp-2 rounded-md bg-slate-50 px-2.5 py-1.5 text-sm text-slate-700">{it.note}</p>}
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </section>
-              ))}
-            </div>
+                          <span className="min-w-0 truncate">
+                            {r.actor && <span className="font-medium text-slate-800">{r.actor} </span>}
+                            {r.verb}
+                          </span>
+                          {r.actor && <span className="shrink-0 text-xs text-slate-400">· {ago(r.at)} ago</span>}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2 sm:flex-col sm:items-end">
+                        {t.status && <StatusBadge status={t.status} />}
+                        {t.status !== "done" && t.status !== "cancelled" && (
+                          <span className={`text-xs ${t.is_overdue ? "font-semibold text-red-700" : "text-slate-500"}`}>{dueLabel(t.due_date, t.status)}</span>
+                        )}
+                      </div>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </Card>
 

@@ -52,7 +52,6 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <SubmitButton pendingText="Signing in…" full>
             Sign in
           </SubmitButton>
-          <p className="text-xs text-slate-500">Forgot your password? Ask the Head of Retail to reset it for you.</p>
         </form>
       </div>
     </main>
