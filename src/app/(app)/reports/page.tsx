@@ -67,7 +67,9 @@ function WeeklyChart({ data }: { data: { start: string; done: number; onTime: nu
           <g key={d.start} className="group">
             <title>{`Week of ${formatDate(d.start)}: ${d.done} completed, ${d.onTime} on time`}</title>
             <rect x={x} y={T} width={bw} height={H - T - B} className="fill-transparent group-hover:fill-slate-100" />
-            {d.done > 0 && <rect x={x + bw * 0.2} y={y(d.done)} width={bw * 0.6} height={Math.max(h, 2)} rx={4} className="fill-blue-600" />}
+            {d.done > 0 && (
+              <rect x={x + (bw - Math.min(bw * 0.6, 40)) / 2} y={y(d.done)} width={Math.min(bw * 0.6, 40)} height={Math.max(h, 2)} rx={4} className="fill-blue-600" />
+            )}
             {(i % Math.ceil(data.length / 8) === 0 || i === data.length - 1) && (
               <text x={x + bw / 2} y={H - 6} textAnchor="middle" className="fill-slate-500 text-[11px]">
                 {new Date(`${d.start}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" })}

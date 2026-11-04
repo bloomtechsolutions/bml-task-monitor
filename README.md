@@ -4,41 +4,55 @@ This app is for assigning, tracking and following up on tasks across the BML Ret
 
 **Stack:** Next.js 15 (App Router) · Supabase (Postgres, Auth, RLS) · Vercel (Mumbai `bom1`)
 
-## Roles
+## Sign-in and roles
 
-| Role | Access |
+People sign in with their **staff number and a password**. The Head sets a temporary password on **People & units**; the person must choose their own at first sign-in. Five wrong attempts lock a staff number for 15 minutes (resetting the password unlocks it). Sessions last 12 hours; resetting a password or deactivating someone signs them out everywhere.
+
+| Role | Can |
 |---|---|
-| Head of Retail | Sees and manages everything. Manages people and units. |
-| Unit manager | Assigns and manages tasks in their own unit. Sees the team dashboard. |
-| Staff | Updates their own tasks. Can add tasks for themselves. |
+| Head of Retail | Everything: all units, people & units, settings, reports for every unit. |
+| Unit manager | Assign and manage work in their unit, approve sign-offs, team overview, recurring tasks, templates, projects and reports for their unit. |
+| Staff | Work on their own tasks, add tasks for themselves, record their own leave. |
 
-All access rules are enforced in Postgres with row-level security. Hiding something in the UI is never what protects it. A new sign-in has no access until the Head places that person in a unit on **People**.
+Roles are enforced on the server in every page and action. Password hashes live in a `private` database schema the API can't read.
 
-## Screens (Phase 1)
+## Screens
 
-The app uses a sidebar layout (Workspace, then Organization). The sidebar collapses on desktop and becomes a drawer on phones. The card at the bottom of the sidebar is the "I am…" switcher.
+- **Dashboard** (`/`): greeting, counts, priority tasks, quick links, and work waiting on your follow-up or sign-off.
+- **My tasks** (`/tasks`): assigned to me / assigned by me, grouped by urgency, including "Waiting for sign-off".
+- **Board** (`/board`): Kanban by status; drag a card or use its "Move to…" menu (keyboard and phone friendly).
+- **Calendar** (`/calendar`): month view of due dates with team leave; agenda list on phones.
+- **Task** (`/tasks/[id]`): progress updates, checklist, evidence files (PDF, images, Office, CSV; 4 MB), sub-tasks, comments, sign-off (approve / send back), full audit trail.
+- **Assign** (`/tasks/new`): start from a template, choose project, checklist, "needs my sign-off"; each person shows open-task count and upcoming leave.
+- **Projects**, **Recurring tasks** (daily Sun–Thu / weekly / monthly / quarterly), **Templates**, **Leave**.
+- **Team overview** (`/team`): unit and per-person workload with overload and leave flags.
+- **Reports** (`/reports`): created, completed, on-time rate, average delay, overdue; weekly chart; by unit and by person; CSV export (opens in Excel) and print to PDF.
+- **Notifications** (bell): assignments, sign-off requests and results, comments, blocked tasks, due tomorrow/today, overdue, escalations, weekly digest.
+- **People & units**, **Settings** (Head only), **Account** (change password).
 
+## Automations (pg_cron, times in Maldives time)
 
-- **Dashboard** (`/`) shows a greeting, your open, overdue, due-this-week and completed counts, your priority tasks, quick links, and tasks you assigned that need follow-up.
-- **My tasks** (`/tasks`) shows tasks assigned to you or assigned by you, grouped by Overdue, Blocked, Due in 7 days and Later.
-- **Task** (`/tasks/[id]`) lets you post a progress update (status, % and note), add comments and sub-tasks, and see the full audit trail. Managers can also change the due date, priority or assignee, or cancel the task.
-- **Assign** (`/tasks/new`) creates a task or a sub-task.
-- **Team** (`/team`) shows open, overdue and blocked counts, the on-time rate, a breakdown by unit and workload per person.
-- **People** (`/admin`) manages units (name, code, active) and people (unit, role, active). Add units first.
+| Job | When | What |
+|---|---|---|
+| `tm-recurring` | 00:05 daily | Creates recurring tasks inside their lead time. |
+| `tm-reminders` | 08:00 daily | Due tomorrow/today and overdue reminders; escalates to the unit manager after N days overdue and to the Head after 2N (N in Settings). |
+| `tm-digest` | 07:30 Sunday | Weekly summary notification for everyone with open work. |
 
-## Environment variables
+Email for the weekly digest is optional: set `RESEND_API_KEY` and `DIGEST_FROM` in Vercel and the Sunday cron (`/api/cron/digest`, protected by `CRON_SECRET`) emails it too.
 
-| Name | Scope |
+## Environment variables (server-side only)
+
+| Name | Purpose |
 |---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | browser-safe |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | browser-safe |
-
-Never prefix the service-role key with `NEXT_PUBLIC_`. When Phase 3 adds reminders, they will run in a Supabase Edge Function, and secrets will stay there.
+| `SUPABASE_URL`, `SUPABASE_KEY` | Database access. Never exposed to the browser. |
+| `SESSION_SECRET` | Signs session cookies (32+ chars). Changing it signs everyone out. |
+| `CRON_SECRET` | Protects the digest cron endpoint. |
+| `RESEND_API_KEY`, `DIGEST_FROM`, `APP_URL` | Optional: weekly digest email. |
 
 ## Development
 
 ```bash
-cp .env.example .env.local
+cp .env.example .env.local   # fill in the variables above
 npm install
 npm run dev
 ```
@@ -50,6 +64,9 @@ Schema changes go in `supabase/migrations/`. After each change, regenerate `src/
 Supabase project `ylpzyypgiovqxdaoqius` (Mumbai, `ap-south-1`). Migrations, in order:
 
 1. `20261104070000_baseline_schema.sql` creates the tables, enums, triggers (completion bookkeeping, audit trail), indexes and the `task_overview` view.
-2. `20261104071500_open_access_no_login.sql` sets open-access policies and the `post_task_update` / `update_task_as` RPCs, and seeds the Head of Retail.
+2. `20261104071500_open_access_no_login.sql` adds the `post_task_update` / `update_task_as` RPCs and seeds the Head of Retail. (The database trusts the app server; the app enforces sign-in and roles.)
 
-Both are applied to the project. To rebuild a fresh project, run them in the SQL editor in this order.
+3. `20261104090000_enum_values.sql` adds `submitted` and `daily`.
+4. `20261104090500_phase2_features.sql` adds sign-in, approvals, checklists, templates, evidence storage, leave, notifications, recurring generation, reminders/escalation, digest and the cron schedules.
+
+All are applied to the project. To rebuild a fresh project, run them in the SQL editor in this order.

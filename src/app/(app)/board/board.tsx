@@ -52,7 +52,7 @@ export function Board({ tasks, meId, showAssignee }: { tasks: Task[]; meId: stri
           {error}
         </p>
       )}
-      <div aria-busy={pending} className={`-mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0 ${pending ? "opacity-70" : ""}`}>
+      <div aria-busy={pending} className={`relative -mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-4 md:mx-0 md:px-0 ${pending ? "opacity-70" : ""}`}>
         {COLUMNS.map((col) => {
           const cards = tasks.filter((t) => t.status === col.status);
           return (
@@ -70,7 +70,7 @@ export function Board({ tasks, meId, showAssignee }: { tasks: Task[]; meId: stri
                 const t = tasks.find((x) => x.id === e.dataTransfer.getData("text/plain"));
                 if (t) move(t, col.status);
               }}
-              className={`flex w-[78vw] max-w-[300px] shrink-0 snap-start flex-col rounded-xl border bg-slate-100/70 sm:w-[280px] ${
+              className={`flex w-[78vw] max-w-[300px] shrink-0 snap-start flex-col rounded-xl border bg-slate-100/70 md:w-auto md:max-w-none md:min-w-[200px] md:flex-1 md:shrink ${
                 over === col.status ? "border-blue-400 ring-2 ring-blue-200" : "border-slate-200"
               }`}
             >
@@ -108,28 +108,26 @@ export function Board({ tasks, meId, showAssignee }: { tasks: Task[]; meId: stri
                         </span>
                       )}
                     </div>
-                    <div className="mt-2 flex items-center justify-between gap-2">
-                      <span className="truncate text-xs text-slate-500">
-                        {showAssignee ? (t.assignee_id === meId ? "Me" : t.assignee_name) : t.assigned_by_name ? `From ${t.assigned_by_name}` : ""}
-                      </span>
-                      <label className="shrink-0">
-                        <span className="sr-only">Move “{t.title}” to</span>
-                        <select
-                          value=""
-                          onChange={(e) => move(t, e.target.value as Status)}
-                          className="rounded-md border border-slate-200 bg-white py-1 pr-6 pl-2 text-xs text-slate-600"
-                        >
-                          <option value="" disabled>
-                            Move to…
+                    <p className="mt-1.5 truncate text-xs text-slate-500">
+                      {showAssignee ? (t.assignee_id === meId ? "Me" : t.assignee_name) : t.assigned_by_name ? `From ${t.assigned_by_name}` : ""}
+                    </p>
+                    <label className="mt-2 block">
+                      <span className="sr-only">Move “{t.title}” to</span>
+                      <select
+                        value=""
+                        onChange={(e) => move(t, e.target.value as Status)}
+                        className="w-full rounded-md border border-slate-200 bg-white py-1 pr-6 pl-2 text-xs text-slate-600"
+                      >
+                        <option value="" disabled>
+                          Move to…
+                        </option>
+                        {COLUMNS.filter((c) => c.status !== t.status).map((c) => (
+                          <option key={c.status} value={c.status}>
+                            {STATUS_LABEL[c.status]}
                           </option>
-                          {COLUMNS.filter((c) => c.status !== t.status).map((c) => (
-                            <option key={c.status} value={c.status}>
-                              {STATUS_LABEL[c.status]}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    </div>
+                        ))}
+                      </select>
+                    </label>
                   </li>
                 ))}
               </ul>
