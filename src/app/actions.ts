@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requirePerson, type Profile } from "@/lib/auth";
 import { canApprove, canAssignTo, canManageTask, canViewTask, isHead } from "@/lib/permissions";
-import { TASK_PRIORITIES, TASK_STATUSES, USER_ROLES, type Enums } from "@/lib/database.types";
+import { TASK_PRIORITIES, TASK_STATUSES, USER_ROLES, type Enums, type Json } from "@/lib/database.types";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -29,11 +29,16 @@ function lines(text: string, max = 30): string[] {
     .slice(0, max);
 }
 
+/** Append to a task's activity log. Never blocks the user's action if logging fails. */
+async function logEvent(taskId: string, actorId: string, kind: string, detail: Record<string, unknown> = {}) {
+  await createClient().from("task_events").insert({ task_id: taskId, actor_id: actorId, kind, detail: detail as Json });
+}
+
 async function loadTask(id: string) {
   if (!UUID.test(id)) redirect("/tasks");
   const { data } = await createClient()
     .from("tasks")
-    .select("id, title, status, progress, unit_id, assignee_id, assigned_by, requires_approval")
+    .select("id, title, status, progress, priority, unit_id, assignee_id, assigned_by, requires_approval")
     .eq("id", id)
     .maybeSingle();
   if (!data) redirect("/tasks");
@@ -99,7 +104,9 @@ export async function createTask(formData: FormData) {
 
   if (checklist.length) {
     await supabase.from("task_checklist_items").insert(checklist.map((body, i) => ({ task_id: created!.id, body, position: i + 1 })));
+    await logEvent(created!.id, me.id, "checklist_added", { items: checklist });
   }
+  if (parent) await logEvent(parent.id, me.id, "subtask_added", { title, task_id: created!.id });
 
   revalidatePath("/", "layout");
   redirect(parent ? `/tasks/${parent.id}?saved=subtask` : `/tasks/${created!.id}?saved=created`);
@@ -245,6 +252,8 @@ export async function manageTask(formData: FormData) {
 
   const { error } = await supabase.rpc("update_task_as", { p_task_id: task.id, p_patch: patch, p_actor: me.id });
   if (error) back(path, { error: error.message });
+  if (patch.priority && patch.priority !== task.priority) await logEvent(task.id, me.id, "priority", { from: task.priority, to: patch.priority });
+  if (patch.assignee_id) await logEvent(task.id, me.id, "reassigned", { from: task.assignee_id, to: patch.assignee_id });
 
   revalidatePath("/", "layout");
   back(path, { saved: intent === "cancel" ? "cancelled" : intent === "reopen" ? "reopened" : "details" });
@@ -272,6 +281,7 @@ export async function addChecklistItems(formData: FormData) {
     .maybeSingle();
   const start = (last?.position ?? 0) + 1;
   await supabase.from("task_checklist_items").insert(items.map((body, i) => ({ task_id: task.id, body, position: start + i })));
+  await logEvent(task.id, (await requirePerson()).id, "checklist_added", { items });
   revalidatePath(`/tasks/${task.id}`);
 }
 
@@ -280,19 +290,23 @@ export async function toggleChecklistItem(formData: FormData) {
   const itemId = str(formData, "item_id");
   if (!UUID.test(itemId)) return;
   const done = str(formData, "done") === "1";
-  await createClient()
+  const { data: item } = await createClient()
     .from("task_checklist_items")
     .update(done ? { is_done: true, done_by: me.id, done_at: new Date().toISOString() } : { is_done: false, done_by: null, done_at: null })
     .eq("id", itemId)
-    .eq("task_id", task.id);
+    .eq("task_id", task.id)
+    .select("body")
+    .maybeSingle();
+  if (item) await logEvent(task.id, me.id, done ? "checklist_done" : "checklist_undone", { body: item.body });
   revalidatePath(`/tasks/${task.id}`);
 }
 
 export async function deleteChecklistItem(formData: FormData) {
-  const { task } = await checklistGuard(str(formData, "task_id"));
+  const { me, task } = await checklistGuard(str(formData, "task_id"));
   const itemId = str(formData, "item_id");
   if (!UUID.test(itemId)) return;
-  await createClient().from("task_checklist_items").delete().eq("id", itemId).eq("task_id", task.id);
+  const { data: item } = await createClient().from("task_checklist_items").delete().eq("id", itemId).eq("task_id", task.id).select("body").maybeSingle();
+  if (item) await logEvent(task.id, me.id, "checklist_removed", { body: item.body });
   revalidatePath(`/tasks/${task.id}`);
 }
 
@@ -332,6 +346,7 @@ export async function uploadEvidence(formData: FormData) {
     await supabase.storage.from("task-evidence").remove([storagePath]);
     back(path, { error: error.message });
   }
+  await logEvent(task.id, me.id, "file_added", { name: safeName, size: f.size });
   revalidatePath("/", "layout");
   back(path, { saved: "file" });
 }
@@ -343,11 +358,12 @@ export async function deleteEvidence(formData: FormData) {
   const fileId = str(formData, "file_id");
   if (!UUID.test(fileId)) back(path, { error: "File not found." });
   const supabase = createClient();
-  const { data: f } = await supabase.from("task_attachments").select("id, storage_path, uploaded_by").eq("id", fileId).eq("task_id", task.id).maybeSingle();
+  const { data: f } = await supabase.from("task_attachments").select("id, storage_path, uploaded_by, file_name").eq("id", fileId).eq("task_id", task.id).maybeSingle();
   if (!f) back(path, { error: "File not found." });
   if (f!.uploaded_by !== me.id && !canManageTask(me, task)) back(path, { error: "Only the uploader or the task's manager can remove this file." });
   await supabase.storage.from("task-evidence").remove([f!.storage_path]);
   await supabase.from("task_attachments").delete().eq("id", f!.id);
+  await logEvent(task.id, me.id, "file_removed", { name: f!.file_name });
   revalidatePath("/", "layout");
   back(path, { saved: "file_removed" });
 }

@@ -84,6 +84,10 @@ export type Database = {
           { foreignKeyName: "task_comments_task_id_fkey"; columns: ["task_id"]; isOneToOne: false; referencedRelation: "tasks"; referencedColumns: ["id"] },
         ];
       };
+      task_events: T<
+        { actor_id: string | null; created_at: string; detail: Json; id: string; kind: string; task_id: string },
+        "kind" | "task_id"
+      >;
       task_templates: T<
         {
           checklist: Json; created_at: string; created_by: string | null; description: string | null; due_in_days: number;

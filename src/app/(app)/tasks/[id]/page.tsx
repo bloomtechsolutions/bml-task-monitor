@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Plus, MessageSquare, History, Paperclip, FileText, Trash2, CheckSquare, Square, ShieldCheck, FolderKanban } from "lucide-react";
+import { ArrowLeft, Plus, Paperclip, FileText, Trash2, CheckSquare, Square, ShieldCheck, FolderKanban } from "lucide-react";
 import { requirePerson } from "@/lib/auth";
 import { canApprove, canAssignTo, canManageTask, canViewTask } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
-import { dueLabel, formatDate, formatDateTime, PRIORITY_LABEL, STATUS_LABEL } from "@/lib/format";
+import { dueLabel, formatDate, formatDateTime, PRIORITY_LABEL } from "@/lib/format";
 import { TASK_PRIORITIES } from "@/lib/database.types";
 import {
   addChecklistItems, addComment, deleteChecklistItem, deleteEvidence, manageTask, reviewTask, toggleChecklistItem, uploadEvidence,
@@ -12,6 +12,7 @@ import {
 import { StatusBadge, PriorityTag, DueText, ProgressBar, Notice, inputCls, labelCls } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { TaskListItem } from "@/components/task-row";
+import { TaskTimeline } from "@/components/task-timeline";
 import { ProgressForm } from "./progress-form";
 
 const SAVED: Record<string, string> = {
@@ -34,10 +35,6 @@ function fileSize(n: number | null): string {
   return n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
-type TimelineItem =
-  | { kind: "update"; id: string; at: string; author: string; text: string; note: string | null }
-  | { kind: "comment"; id: string; at: string; author: string; body: string };
-
 function SubmitButtonIcon({ label }: { label: string }) {
   return (
     <button type="submit" aria-label={label} className="grid size-8 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-red-600">
@@ -51,7 +48,7 @@ export default async function TaskPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ saved?: string; error?: string }>;
+  searchParams: Promise<{ saved?: string; error?: string; activity?: string }>;
 }) {
   const [{ id }, sp, person] = await Promise.all([params, searchParams, requirePerson()]);
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
@@ -61,22 +58,22 @@ export default async function TaskPage({
     supabase.from("task_overview").select("*").eq("id", id).maybeSingle(),
     supabase
       .from("task_updates")
-      .select("id, created_at, note, old_status, new_status, old_progress, new_progress, old_due_date, new_due_date, author:profiles!task_updates_author_id_fkey(full_name)")
+      .select("id, created_at, note, author_id, old_status, new_status, old_progress, new_progress, old_due_date, new_due_date")
       .eq("task_id", id)
       .order("created_at", { ascending: false })
       .limit(100),
     supabase
       .from("task_comments")
-      .select("id, created_at, body, author:profiles!task_comments_author_id_fkey(full_name)")
+      .select("id, created_at, body, author_id")
       .eq("task_id", id)
       .order("created_at", { ascending: false })
-      .limit(100),
+      .limit(300),
     supabase.from("task_overview").select("*").eq("parent_task_id", id).order("due_date"),
   ]);
 
   if (!task || !task.id || !task.status || !task.priority || !canViewTask(person, task)) notFound();
 
-  const [{ data: checklist }, { data: files }, { data: leave }] = await Promise.all([
+  const [{ data: checklist }, { data: files }, { data: leave }, { data: events }, { data: everyone }] = await Promise.all([
     supabase.from("task_checklist_items").select("*").eq("task_id", id).order("position"),
     supabase.from("task_attachments").select("*").eq("task_id", id).order("created_at"),
     supabase
@@ -87,7 +84,11 @@ export default async function TaskPage({
       .gte("end_date", new Date().toISOString().slice(0, 10))
       .order("start_date")
       .limit(1),
+    supabase.from("task_events").select("id, created_at, actor_id, kind, detail").eq("task_id", id).order("created_at", { ascending: false }).limit(500),
+    supabase.from("profiles").select("id, full_name"),
   ]);
+  const names = new Map((everyone ?? []).map((p) => [p.id, p.full_name ?? "Unnamed"]));
+  const activityFilter = sp.activity === "comments" || sp.activity === "changes" ? sp.activity : "all";
 
   const taskId: string = task.id;
   const isAssignee = task.assignee_id === person.id;
@@ -97,26 +98,6 @@ export default async function TaskPage({
   const closed = task.status === "cancelled";
   const awaiting = task.status === "submitted";
   const doneItems = (checklist ?? []).filter((c) => c.is_done).length;
-
-  const timeline: TimelineItem[] = [
-    ...(updates ?? []).map((u): TimelineItem => {
-      const parts: string[] = [];
-      if (u.new_status && u.new_status !== u.old_status) parts.push(`set status to ${STATUS_LABEL[u.new_status]}`);
-      if (u.new_progress !== null && u.new_progress !== u.old_progress && u.new_status !== "done") parts.push(`moved progress to ${u.new_progress}%`);
-      if (u.new_due_date && u.new_due_date !== u.old_due_date) parts.push(`changed due date from ${formatDate(u.old_due_date)} to ${formatDate(u.new_due_date)}`);
-      return {
-        kind: "update",
-        id: u.id,
-        at: u.created_at,
-        author: u.author?.full_name ?? "Someone",
-        text: parts.length ? parts.join(", ") : "posted an update",
-        note: u.note,
-      };
-    }),
-    ...(comments ?? []).map(
-      (c): TimelineItem => ({ kind: "comment", id: c.id, at: c.created_at, author: c.author?.full_name ?? "Someone", body: c.body }),
-    ),
-  ].sort((a, b) => b.at.localeCompare(a.at));
 
   let reassignOptions: { id: string; name: string }[] = [];
   if (canManage && !closed) {
@@ -352,10 +333,11 @@ export default async function TaskPage({
           )}
 
           {/* Activity */}
-          <section aria-labelledby="activity-h" className="rounded-xl border border-slate-200 bg-white shadow-xs p-4 sm:p-5">
-            <h2 id="activity-h" className="mb-3 font-semibold text-slate-900">
-              Activity
+          <section id="activity" aria-labelledby="activity-h" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white shadow-xs p-4 sm:p-5">
+            <h2 id="activity-h" className="font-semibold text-slate-900">
+              Activity timeline
             </h2>
+            <p className="mb-4 text-sm text-slate-500">Every change, update, file and comment on this task, newest first.</p>
             <form action={addComment} className="mb-5 space-y-2">
               <input type="hidden" name="task_id" value={taskId} />
               <label htmlFor="body" className="sr-only">
@@ -369,30 +351,14 @@ export default async function TaskPage({
               </div>
             </form>
 
-            {timeline.length === 0 ? (
-              <p className="text-sm text-slate-500">No activity yet.</p>
-            ) : (
-              <ol className="space-y-4">
-                {timeline.map((item) => (
-                  <li key={`${item.kind}-${item.id}`} className="flex gap-3">
-                    <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600">
-                      {item.kind === "comment" ? <MessageSquare aria-hidden className="size-3.5" /> : <History aria-hidden className="size-3.5" />}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm text-slate-800">
-                        <strong className="font-medium">{item.author}</strong>{" "}
-                        {item.kind === "update" ? <span className="text-slate-600">{item.text}</span> : <span className="text-slate-500">commented</span>}
-                        <span className="ml-2 text-xs text-slate-400">{formatDateTime(item.at)}</span>
-                      </p>
-                      {item.kind === "comment" && <p className="mt-1 whitespace-pre-wrap text-[15px] text-slate-800">{item.body}</p>}
-                      {item.kind === "update" && item.note && (
-                        <p className="mt-1 whitespace-pre-wrap rounded-md bg-slate-50 px-3 py-2 text-[15px] text-slate-800">{item.note}</p>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            )}
+            <TaskTimeline
+              taskId={taskId}
+              updates={updates ?? []}
+              comments={comments ?? []}
+              events={events ?? []}
+              names={names}
+              filter={activityFilter}
+            />
           </section>
         </div>
 
