@@ -114,6 +114,15 @@ export async function commitImport(_prev: CommitState, formData: FormData): Prom
     }
   }
 
+  // Rows already rejected at the preview stage, so the summary shows everyone who wasn't imported.
+  try {
+    const skipped = JSON.parse(String(formData.get("skipped") ?? "[]")) as { line: number; full_name: string; staff_no: string; error: string }[];
+    for (const r of skipped.slice(0, MAX_ROWS)) {
+      results.push({ line: Number(r.line), full_name: String(r.full_name ?? ""), staff_no: String(r.staff_no ?? ""), action: "failed", error: String(r.error ?? "") });
+    }
+  } catch {}
+  results.sort((a, b) => a.line - b.line);
+
   revalidatePath("/", "layout");
   return { results, unitsCreated };
 }

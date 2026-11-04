@@ -122,6 +122,7 @@ function Flow({ onRestart }: { onRestart: () => void }) {
       <form action={commitAction} className="space-y-5">
         <input type="hidden" name="rows" value={JSON.stringify(ok.map(({ line, full_name, staff_no, designation, unit, role, email, password }) => ({ line, full_name, staff_no, designation, unit, role, email, password })))} />
         <input type="hidden" name="create_units" value={preview.createUnits ? "1" : "0"} />
+        <input type="hidden" name="skipped" value={JSON.stringify(bad.map((r) => ({ line: r.line, full_name: r.full_name, staff_no: r.staff_no, error: r.errors.join("; ") })))} />
         {result.error && (
           <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
             {result.error}
