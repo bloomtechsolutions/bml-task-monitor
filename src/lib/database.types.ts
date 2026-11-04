@@ -28,17 +28,17 @@ export type Database = {
       };
       profiles: {
         Row: {
-          created_at: string; designation: string | null; email: string; full_name: string | null; id: string;
+          created_at: string; designation: string | null; email: string | null; full_name: string | null; id: string;
           is_active: boolean; manager_id: string | null; role: Database["public"]["Enums"]["user_role"];
           staff_no: string | null; unit_id: string | null; updated_at: string;
         };
         Insert: {
-          created_at?: string; designation?: string | null; email: string; full_name?: string | null; id: string;
+          created_at?: string; designation?: string | null; email?: string | null; full_name?: string | null; id?: string;
           is_active?: boolean; manager_id?: string | null; role?: Database["public"]["Enums"]["user_role"];
           staff_no?: string | null; unit_id?: string | null; updated_at?: string;
         };
         Update: {
-          created_at?: string; designation?: string | null; email?: string; full_name?: string | null; id?: string;
+          created_at?: string; designation?: string | null; email?: string | null; full_name?: string | null; id?: string;
           is_active?: boolean; manager_id?: string | null; role?: Database["public"]["Enums"]["user_role"];
           staff_no?: string | null; unit_id?: string | null; updated_at?: string;
         };
@@ -90,9 +90,9 @@ export type Database = {
         Relationships: Rel[];
       };
       task_comments: {
-        Row: { author_id: string; body: string; created_at: string; id: string; task_id: string };
-        Insert: { author_id?: string; body: string; created_at?: string; id?: string; task_id: string };
-        Update: { author_id?: string; body?: string; created_at?: string; id?: string; task_id?: string };
+        Row: { author_id: string | null; body: string; created_at: string; id: string; task_id: string };
+        Insert: { author_id?: string | null; body: string; created_at?: string; id?: string; task_id: string };
+        Update: { author_id?: string | null; body?: string; created_at?: string; id?: string; task_id?: string };
         Relationships: [
           { foreignKeyName: "task_comments_author_id_fkey"; columns: ["author_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
           { foreignKeyName: "task_comments_task_id_fkey"; columns: ["task_id"]; isOneToOne: false; referencedRelation: "tasks"; referencedColumns: ["id"] },
@@ -163,7 +163,11 @@ export type Database = {
     };
     Functions: {
       post_task_update: {
-        Args: { p_note: string; p_progress?: number; p_status?: Database["public"]["Enums"]["task_status"]; p_task_id: string };
+        Args: { p_note: string; p_actor?: string; p_progress?: number; p_status?: Database["public"]["Enums"]["task_status"]; p_task_id: string };
+        Returns: undefined;
+      };
+      update_task_as: {
+        Args: { p_task_id: string; p_actor?: string; p_patch: Json };
         Returns: undefined;
       };
     };

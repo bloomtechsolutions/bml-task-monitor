@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { getViewer } from "@/lib/auth";
+import { getPerson } from "@/lib/auth";
+import { PersonPicker } from "@/components/person-picker";
 import { createClient } from "@/lib/supabase/server";
 import { addDays, todayMV } from "@/lib/format";
 import { PageHeader, EmptyState, ButtonLink, Notice } from "@/components/ui";
@@ -22,12 +23,35 @@ function groupTasks(tasks: TaskRow[]) {
 }
 
 export default async function MyTasksPage({ searchParams }: { searchParams: Promise<{ view?: string; q?: string }> }) {
-  const viewer = await getViewer();
+  const person = await getPerson();
   const sp = await searchParams;
+  const supabase = createClient();
+
+  if (!person) {
+    const { data: people } = await supabase.from("profiles").select("id, full_name").eq("is_active", true).order("full_name");
+    return (
+      <div className="mx-auto max-w-md rounded-lg border border-slate-200 bg-white p-6">
+        <h1 className="text-lg font-semibold text-slate-900">Who are you?</h1>
+        <p className="mt-1 mb-4 text-sm text-slate-600">Pick your name to see your tasks. This phone will remember it.</p>
+        <PersonPicker people={(people ?? []).map((p) => ({ id: p.id, name: p.full_name ?? "Unnamed" }))} currentId={null} />
+        <p className="mt-4 text-sm text-slate-600">
+          Not on the list? Add yourself on{" "}
+          <Link href="/admin" className="font-medium text-slate-900 underline">
+            People
+          </Link>
+          , or see the whole{" "}
+          <Link href="/team" className="font-medium text-slate-900 underline">
+            team overview
+          </Link>
+          .
+        </p>
+      </div>
+    );
+  }
+
   const view: View = sp.view === "assigned" ? "assigned" : "mine";
   const q = (sp.q ?? "").trim().slice(0, 80);
 
-  const supabase = await createClient();
   const recentCutoff = new Date(Date.now() - 14 * 86_400_000).toISOString();
 
   let query = supabase
@@ -40,8 +64,8 @@ export default async function MyTasksPage({ searchParams }: { searchParams: Prom
 
   query =
     view === "mine"
-      ? query.eq("assignee_id", viewer.profile.id)
-      : query.eq("assigned_by", viewer.profile.id).neq("assignee_id", viewer.profile.id);
+      ? query.eq("assignee_id", person.id)
+      : query.eq("assigned_by", person.id).neq("assignee_id", person.id);
   if (q) query = query.ilike("title", `%${q.replace(/[%_,()]/g, " ")}%`);
 
   const { data, error } = await query;
@@ -49,7 +73,7 @@ export default async function MyTasksPage({ searchParams }: { searchParams: Prom
   const g = groupTasks(tasks);
   const openCount = tasks.length - g.done.length;
   const showPerson = view === "mine" ? "assigner" : "assignee";
-  const firstName = viewer.profile.full_name?.split(" ")[0];
+  const firstName = person.full_name?.split(" ")[0];
 
   return (
     <>
@@ -63,7 +87,7 @@ export default async function MyTasksPage({ searchParams }: { searchParams: Prom
         action={
           <ButtonLink href="/tasks/new">
             <Plus aria-hidden className="size-4" />
-            {view === "mine" && !viewer.isHead && !viewer.isManager ? "Add task" : "Assign task"}
+            Assign task
           </ButtonLink>
         }
       />

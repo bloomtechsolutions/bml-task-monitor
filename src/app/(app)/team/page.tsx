@@ -1,6 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getViewer } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { addDays, todayMV } from "@/lib/format";
 import { PageHeader, EmptyState, Notice } from "@/components/ui";
@@ -36,15 +34,12 @@ function Metric({ label, value, tone }: { label: string; value: string | number;
 }
 
 export default async function TeamPage({ searchParams }: { searchParams: Promise<{ unit?: string }> }) {
-  const viewer = await getViewer();
-  if (!viewer.isHead && !viewer.isManager) redirect("/");
   const { unit: unitFilter } = await searchParams;
 
-  const supabase = await createClient();
+  const supabase = createClient();
   const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
   const [{ data: units }, { data: rows, error }] = await Promise.all([
     supabase.from("units").select("id, name, code").eq("is_active", true).order("name"),
-    // RLS scopes this: Head sees everything, a manager sees their unit.
     supabase
       .from("task_overview")
       .select("*")
@@ -55,7 +50,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
   ]);
 
   const weekEnd = addDays(todayMV(), 7);
-  const visibleUnits = (units ?? []).filter((u) => viewer.isHead || u.id === viewer.profile.unit_id);
+  const visibleUnits = units ?? [];
   const selectedUnit = visibleUnits.find((u) => u.id === unitFilter) ?? null;
   const all = (rows ?? []).filter((t) => !selectedUnit || t.unit_id === selectedUnit.id);
   const totals = tally(all, weekEnd);
@@ -76,18 +71,18 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
   const open = all.filter((t) => t.status !== "done");
   const overdue = open.filter((t) => t.is_overdue).sort((a, b) => (b.days_overdue ?? 0) - (a.days_overdue ?? 0));
   const blocked = open.filter((t) => t.status === "blocked" && !t.is_overdue);
-  const unitStats = viewer.isHead && !selectedUnit
+  const unitStats = !selectedUnit
     ? visibleUnits.map((u) => ({ u, c: tally((rows ?? []).filter((t) => t.unit_id === u.id), weekEnd) }))
     : [];
 
   return (
     <>
       <PageHeader
-        title={selectedUnit ? selectedUnit.name : viewer.isHead ? "Retail Banking overview" : "Team overview"}
+        title={selectedUnit ? selectedUnit.name : "Retail Banking overview"}
         subtitle="Open work, overdue items and completion over the last 30 days."
       />
 
-      {viewer.isHead && visibleUnits.length > 0 && (
+      {visibleUnits.length > 0 && (
         <nav aria-label="Filter by unit" className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1">
           {[{ id: "", name: "All units" }, ...visibleUnits].map((u) => {
             const active = (selectedUnit?.id ?? "") === u.id;
@@ -181,7 +176,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
                       <tr key={p.id}>
                         <td className="px-4 py-2.5">
                           <span className="font-medium text-slate-900">{p.name}</span>
-                          {viewer.isHead && !selectedUnit && <span className="ml-1.5 text-xs text-slate-400">{p.unit}</span>}
+                          {!selectedUnit && <span className="ml-1.5 text-xs text-slate-400">{p.unit}</span>}
                         </td>
                         <td className="px-2 py-2.5 text-right tabular-nums">{p.c.open}</td>
                         <td className={`px-2 py-2.5 text-right tabular-nums ${p.c.overdue ? "font-semibold text-red-700" : "text-slate-500"}`}>{p.c.overdue}</td>

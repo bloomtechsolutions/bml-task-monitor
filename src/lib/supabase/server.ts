@@ -1,23 +1,11 @@
 import "server-only";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { env } from "@/lib/env";
 
-export async function createClient() {
-  const cookieStore = await cookies();
-  return createServerClient<Database>(env.supabaseUrl, env.supabaseKey, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll();
-      },
-      setAll(cookiesToSet) {
-        try {
-          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
-        } catch {
-          // Called from a Server Component: the middleware refreshes the session instead.
-        }
-      },
-    },
+// No login: every request uses the public (anon) role. Access is open by owner decision.
+export function createClient() {
+  return createSupabaseClient<Database>(env.supabaseUrl, env.supabaseKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
   });
 }

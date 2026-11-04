@@ -4,22 +4,19 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ListChecks, LayoutDashboard, Plus, Users } from "lucide-react";
 
-type Item = { href: string; label: string; icon: typeof ListChecks; match: (p: string) => boolean };
+const ITEMS = [
+  { href: "/", label: "My tasks", icon: ListChecks, match: (p: string) => p === "/" || (p.startsWith("/tasks/") && p !== "/tasks/new") },
+  { href: "/team", label: "Team", icon: LayoutDashboard, match: (p: string) => p.startsWith("/team") },
+  { href: "/tasks/new", label: "Assign", icon: Plus, match: (p: string) => p === "/tasks/new" },
+  { href: "/admin", label: "People", icon: Users, match: (p: string) => p.startsWith("/admin") },
+];
 
-export function Nav({ showTeam, showAdmin, canAssign }: { showTeam: boolean; showAdmin: boolean; canAssign: boolean }) {
+export function Nav() {
   const pathname = usePathname();
-  const items: Item[] = [
-    { href: "/", label: "My tasks", icon: ListChecks, match: (p) => p === "/" || (p.startsWith("/tasks/") && p !== "/tasks/new") },
-  ];
-  if (showTeam) items.push({ href: "/team", label: "Team", icon: LayoutDashboard, match: (p) => p.startsWith("/team") });
-  if (canAssign) items.push({ href: "/tasks/new", label: "Assign", icon: Plus, match: (p) => p === "/tasks/new" });
-  if (showAdmin) items.push({ href: "/admin", label: "People", icon: Users, match: (p) => p.startsWith("/admin") });
-
   return (
     <>
-      {/* Desktop: inline in header */}
       <nav aria-label="Main" className="hidden items-center gap-1 sm:flex">
-        {items.map(({ href, label, icon: Icon, match }) => {
+        {ITEMS.map(({ href, label, icon: Icon, match }) => {
           const active = match(pathname);
           return (
             <Link
@@ -37,13 +34,12 @@ export function Nav({ showTeam, showAdmin, canAssign }: { showTeam: boolean; sho
         })}
       </nav>
 
-      {/* Mobile: bottom tab bar, thumb-reachable */}
       <nav
         aria-label="Main"
         className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden"
       >
         <ul className="flex">
-          {items.map(({ href, label, icon: Icon, match }) => {
+          {ITEMS.map(({ href, label, icon: Icon, match }) => {
             const active = match(pathname);
             return (
               <li key={href} className="flex-1">

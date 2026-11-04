@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Plus, MessageSquare, History } from "lucide-react";
-import { getViewer, canManageTask } from "@/lib/auth";
+import { getPerson } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { dueLabel, formatDate, formatDateTime, PRIORITY_LABEL, STATUS_LABEL } from "@/lib/format";
 import { TASK_PRIORITIES } from "@/lib/database.types";
@@ -32,21 +32,21 @@ export default async function TaskPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ saved?: string; error?: string }>;
 }) {
-  const [{ id }, sp, viewer] = await Promise.all([params, searchParams, getViewer()]);
+  const [{ id }, sp, person] = await Promise.all([params, searchParams, getPerson()]);
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
-  const supabase = await createClient();
+  const supabase = createClient();
 
   const [{ data: task }, { data: updates }, { data: comments }, { data: subtasks }] = await Promise.all([
     supabase.from("task_overview").select("*").eq("id", id).maybeSingle(),
     supabase
       .from("task_updates")
-      .select("id, created_at, note, old_status, new_status, old_progress, new_progress, old_due_date, new_due_date, author:profiles!task_updates_author_id_fkey(full_name, email)")
+      .select("id, created_at, note, old_status, new_status, old_progress, new_progress, old_due_date, new_due_date, author:profiles!task_updates_author_id_fkey(full_name)")
       .eq("task_id", id)
       .order("created_at", { ascending: false })
       .limit(100),
     supabase
       .from("task_comments")
-      .select("id, created_at, body, author:profiles!task_comments_author_id_fkey(full_name, email)")
+      .select("id, created_at, body, author:profiles!task_comments_author_id_fkey(full_name)")
       .eq("task_id", id)
       .order("created_at", { ascending: false })
       .limit(100),
@@ -56,9 +56,9 @@ export default async function TaskPage({
   // RLS returns nothing when the viewer may not see the task.
   if (!task || !task.id || !task.status || !task.priority) notFound();
 
-  const isAssignee = task.assignee_id === viewer.profile.id;
-  const canManage = canManageTask(viewer, task);
-  const canUpdate = isAssignee || canManage;
+  const isAssignee = person !== null && task.assignee_id === person.id;
+  const canManage = true; // no login: everyone can manage
+  const canUpdate = true;
   const closed = task.status === "cancelled";
 
   const timeline: TimelineItem[] = [
@@ -71,23 +71,21 @@ export default async function TaskPage({
         kind: "update",
         id: u.id,
         at: u.created_at,
-        author: u.author?.full_name ?? u.author?.email ?? "System",
+        author: u.author?.full_name ?? "Someone",
         text: parts.length ? parts.join(", ") : "posted an update",
         note: u.note,
       };
     }),
     ...(comments ?? []).map(
-      (c): TimelineItem => ({ kind: "comment", id: c.id, at: c.created_at, author: c.author?.full_name ?? c.author?.email ?? "Someone", body: c.body }),
+      (c): TimelineItem => ({ kind: "comment", id: c.id, at: c.created_at, author: c.author?.full_name ?? "Someone", body: c.body }),
     ),
   ].sort((a, b) => b.at.localeCompare(a.at));
 
-  // People this viewer may reassign to (RLS re-checks on save).
+  // Everyone on the team list can be assigned.
   let reassignOptions: { id: string; name: string }[] = [];
   if (canManage && !closed) {
-    let q = supabase.from("profiles").select("id, full_name, email, unit_id").eq("is_active", true).not("unit_id", "is", null).order("full_name");
-    if (!viewer.isHead && task.unit_id) q = q.eq("unit_id", task.unit_id);
-    const { data } = await q;
-    reassignOptions = (data ?? []).map((p) => ({ id: p.id, name: p.full_name ?? p.email }));
+    const { data } = await supabase.from("profiles").select("id, full_name").eq("is_active", true).order("full_name");
+    reassignOptions = (data ?? []).map((p) => ({ id: p.id, name: p.full_name ?? "Unnamed" }));
   }
 
   return (

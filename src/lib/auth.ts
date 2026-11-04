@@ -1,41 +1,20 @@
 import "server-only";
 import { cache } from "react";
-import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import type { Tables } from "@/lib/database.types";
 
 export type Profile = Tables<"profiles">;
 
-export type Viewer = {
-  profile: Profile;
-  isHead: boolean;
-  isManager: boolean;
-  /** Placed in a unit by the Head (or is the Head). Unplaced accounts see nothing. */
-  isMember: boolean;
-};
+/** Cookie holding the person picked under "I am…". A convenience, not a security boundary. */
+export const PERSON_COOKIE = "tm_person";
 
-/** Current signed-in user's profile. Redirects to /login if not signed in. */
-export const getViewer = cache(async (): Promise<Viewer> => {
-  const supabase = await createClient();
-  const { data: claims } = await supabase.auth.getClaims();
-  const userId = claims?.claims?.sub;
-  if (!userId) redirect("/login");
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
-  if (!profile || !profile.is_active) redirect("/login?error=inactive");
-
-  const isHead = profile.role === "head";
-  return {
-    profile,
-    isHead,
-    isManager: profile.role === "manager",
-    isMember: isHead || profile.unit_id !== null,
-  };
+/** The person this browser says it is, or null if none chosen yet. */
+export const getPerson = cache(async (): Promise<Profile | null> => {
+  const id = (await cookies()).get(PERSON_COOKIE)?.value;
+  if (!id || !UUID.test(id)) return null;
+  const { data } = await createClient().from("profiles").select("*").eq("id", id).eq("is_active", true).maybeSingle();
+  return data ?? null;
 });
-
-/** Can this viewer manage (edit, reassign, cancel) a task in the given unit? */
-export function canManageTask(viewer: Viewer, task: { unit_id: string | null; assigned_by: string | null }) {
-  if (viewer.isHead) return true;
-  if (viewer.isManager && task.unit_id !== null && task.unit_id === viewer.profile.unit_id) return true;
-  return task.assigned_by === viewer.profile.id;
-}
