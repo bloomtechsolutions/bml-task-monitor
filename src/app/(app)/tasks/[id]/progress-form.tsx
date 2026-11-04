@@ -12,17 +12,30 @@ const CHOICES: Enums<"task_status">[] = ["not_started", "in_progress", "blocked"
 export function ProgressForm({
   taskId,
   status,
-  progress,
+  checklistTotal = 0,
+  checklistDone = 0,
   needsSignOff = false,
 }: {
   taskId: string;
   status: Enums<"task_status">;
-  progress: number;
+  checklistTotal?: number;
+  checklistDone?: number;
   needsSignOff?: boolean;
 }) {
   const [s, setS] = useState<Enums<"task_status">>(status === "submitted" ? "done" : status);
-  const [p, setP] = useState(progress);
-  const effectiveProgress = s === "done" ? 100 : p;
+  // Mirrors private.auto_progress in the database, which sets the real value.
+  const auto =
+    s === "not_started" ? 0 : s === "done" ? 100 : checklistTotal > 0 ? Math.round((100 * checklistDone) / checklistTotal) : 50;
+  const why =
+    s === "not_started"
+      ? "Not started is always 0%."
+      : s === "done"
+        ? needsSignOff
+          ? "Submitted work counts as 100%."
+          : "Done is 100%."
+        : checklistTotal > 0
+          ? `${checklistDone} of ${checklistTotal} checklist steps ticked. Tick steps below to move it.`
+          : "In progress counts as 50%. Add checklist steps to track it more precisely.";
 
   return (
     <form action={postUpdate} className="space-y-4">
@@ -46,22 +59,14 @@ export function ProgressForm({
       </fieldset>
 
       <div>
-        <label htmlFor="progress" className={labelCls}>
-          Progress <span className="tabular-nums font-semibold">{effectiveProgress}%</span>
-        </label>
-        <input
-          id="progress"
-          name="progress"
-          type="range"
-          min={0}
-          max={100}
-          step={5}
-          value={effectiveProgress}
-          disabled={s === "done"}
-          onChange={(e) => setP(Number(e.target.value))}
-          className="h-11 w-full accent-blue-600"
-        />
-        {s === "done" && <input type="hidden" name="progress" value={100} />}
+        <p className={labelCls}>
+          Progress <span className="tabular-nums font-semibold">{auto}%</span>{" "}
+          <span className="font-normal text-slate-500">· set automatically</span>
+        </p>
+        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200" aria-hidden>
+          <div className="h-full rounded-full bg-blue-600 transition-[width]" style={{ width: `${auto}%` }} />
+        </div>
+        <p className="mt-1.5 text-xs text-slate-500">{why}</p>
       </div>
 
       <div>

@@ -184,7 +184,8 @@ export default async function TaskPage({
               <ProgressForm
                 taskId={task.id}
                 status={task.status}
-                progress={task.progress ?? 0}
+                checklistTotal={checklist?.length ?? 0}
+                checklistDone={doneItems}
                 needsSignOff={task.requires_approval === true && !mayApprove}
               />
             </section>

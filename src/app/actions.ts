@@ -137,7 +137,7 @@ async function applyStatus(
 
   const statusChanged = status !== null && status !== task.status;
   const progressChanged = progress !== null && progress !== task.progress;
-  if (!statusChanged && !progressChanged && !note) return { ok: false, error: "Nothing changed. Move the progress, change the status or add a note." };
+  if (!statusChanged && !progressChanged && !note) return { ok: false, error: "Nothing changed. Change the status or add a note." };
 
   const { error } = await createClient().rpc("post_task_update", {
     p_task_id: task.id,
@@ -157,9 +157,8 @@ export async function postUpdate(formData: FormData) {
   const me = await requirePerson();
   const task = await loadTask(str(formData, "task_id"));
   const path = `/tasks/${task.id}`;
-  const progressRaw = Number(str(formData, "progress"));
-  const progress = Number.isInteger(progressRaw) && progressRaw >= 0 && progressRaw <= 100 ? progressRaw : null;
-  const res = await applyStatus(me, task, oneOf(str(formData, "status"), TASK_STATUSES), progress, str(formData, "note").slice(0, 2000));
+  // Progress is calculated by the database from status and checklist; it is never taken from the form.
+  const res = await applyStatus(me, task, oneOf(str(formData, "status"), TASK_STATUSES), null, str(formData, "note").slice(0, 2000));
   if (!res.ok) back(path, { error: res.error });
   revalidatePath("/", "layout");
   back(path, { saved: res.status === "submitted" && task.status !== "submitted" ? "submitted" : "update" });
